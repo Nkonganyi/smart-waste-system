@@ -66,8 +66,23 @@ exports.assignCollector = async (req, res) => {
 // Update report status (collector only)
 exports.updateReportStatus = async (req, res) => {
     const { report_id, status } = req.body
+    const collector_id = req.user.id
 
-    const { data, error } = await supabase
+    // Check if collector is assigned to this report
+    const { data: assignment, error: assignError } = await supabase
+        .from("assignments")
+        .select("*")
+        .eq("report_id", report_id)
+        .eq("collector_id", collector_id)
+        .single()
+
+    if (!assignment) {
+        return res.status(403).json({
+            error: "You are not assigned to this report"
+        })
+    }
+
+    const { error } = await supabase
         .from("reports")
         .update({ status })
         .eq("id", report_id)
