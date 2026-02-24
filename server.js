@@ -9,9 +9,13 @@ app.use(express.json())
 
 const authRoutes = require("./routes/authRoutes")
 const reportRoutes = require("./routes/reportRoutes")
+const notificationRoutes = require("./routes/notificationRoutes")
+const dashboardRoutes = require("./routes/dashboardRoutes")
 
 app.use("/api/auth", authRoutes)
 app.use("/api/reports", reportRoutes)
+app.use("/api/notifications", notificationRoutes)
+app.use("/api/dashboard", dashboardRoutes)
 
 app.get("/", (req, res) => {
     res.send("Smart Waste Backend Running")
