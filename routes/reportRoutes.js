@@ -33,5 +33,12 @@ router.get(
     authenticate,
     reportController.getMyReports
 )
+// Get collector workload stats (admin only)
+router.get(
+    "/collectors",
+    authenticate,
+    authorize(["admin"]),
+    reportController.getCollectors
+)
 
 module.exports = router

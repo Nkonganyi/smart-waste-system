@@ -163,3 +163,16 @@ exports.getMyReports = async (req, res) => {
 
     res.json(data)
 }
+// Get list of collectors (for admin assignment)
+exports.getCollectors = async (req, res) => {
+    const { data, error } = await supabase
+        .from("users")
+        .select("id, name")
+        .eq("role", "collector")
+
+    if (error) {
+        return res.status(400).json({ error: error.message })
+    }
+
+    res.json(data)
+}
