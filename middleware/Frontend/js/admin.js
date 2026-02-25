@@ -76,11 +76,67 @@ async function assignCollector(reportId) {
         alert(data.error || "Error assigning collector")
     }
 }
+// Load location chart
+let locationChartInstance = null
+
+async function loadLocationChart() {
+    const data = await apiRequest("/dashboard/locations")
+
+    const labels = Object.keys(data)
+    const values = Object.values(data)
+
+    const ctx = document.getElementById("locationChart")
+
+    if (locationChartInstance) {
+        locationChartInstance.destroy()
+    }
+
+    locationChartInstance = new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Reports Per Location",
+                data: values
+            }]
+        }
+    })
+}
+//
+let collectorChartInstance = null
+
+async function loadCollectorChart() {
+    const data = await apiRequest("/reports/workload")
+
+    const labels = data.map(item => item.collector)
+    const values = data.map(item => item.count)
+
+    const ctx = document.getElementById("collectorChart")
+
+    if (collectorChartInstance) {
+        collectorChartInstance.destroy()
+    }
+
+    collectorChartInstance = new Chart(ctx, {
+        type: "pie",
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Collector Workload",
+                data: values
+            }]
+        }
+    })
+}
 
 loadStats()
+loadLocationChart()
 loadReports()
+loadCollectorChart()
 
 setInterval(() => {
     loadStats()
+    loadLocationChart()
     loadReports()
+    loadCollectorChart()
 }, 10000) // refresh every 10 seconds

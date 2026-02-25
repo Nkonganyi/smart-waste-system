@@ -176,3 +176,88 @@ exports.getCollectors = async (req, res) => {
 
     res.json(data)
 }
+// Get assigned reports for collector
+exports.getAssignedReports = async (req, res) => {
+    const collectorId = req.user.id
+
+    const { data, error } = await supabase
+        .from("assignments")
+        .select(`
+            report_id,
+            reports(*)
+        `)
+        .eq("collector_id", collectorId)
+
+    if (error) {
+        return res.status(400).json({ error: error.message })
+    }
+
+    const reports = data.map(item => item.reports)
+
+    res.json(reports)
+}
+// Get collector workload (number of assigned reports)
+exports.getCollectorWorkload = async (req, res) => {
+    const { data, error } = await supabase
+        .from("assignments")
+        .select(`
+            collector_id,
+            users!assignments_collector_id_fkey(name)
+        `)
+
+    if (error) {
+        return res.status(400).json({ error: error.message })
+    }
+
+    const workload = {}
+
+    data.forEach(item => {
+        const name = item.users?.name
+
+        if (!workload[name]) {
+            workload[name] = 0
+        }
+
+        workload[name]++
+    })
+
+    const result = Object.keys(workload).map(name => ({
+        collector: name,
+        count: workload[name]
+    }))
+
+    res.json(result)
+}
+// Mark report as in progress
+exports.startReport = async (req, res) => {
+    const { report_id } = req.body
+
+    const { error } = await supabase
+        .from("reports")
+        .update({ status: "in_progress" })
+        .eq("id", report_id)
+
+    if (error) {
+        return res.status(400).json({ error: error.message })
+    }
+
+    res.json({ message: "Report marked as In Progress" })
+}
+// Mark report as completed
+exports.completeReport = async (req, res) => {
+    const { report_id } = req.body
+
+    const { error } = await supabase
+        .from("reports")
+        .update({
+            status: "completed",
+            completed_at: new Date()
+        })
+        .eq("id", report_id)
+
+    if (error) {
+        return res.status(400).json({ error: error.message })
+    }
+
+    res.json({ message: "Report completed successfully" })
+}

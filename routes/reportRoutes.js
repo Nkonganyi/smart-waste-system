@@ -6,12 +6,19 @@ const { authenticate, authorize } = require("../middleware/authMiddleware")
 const upload = require("../middleware/uploadMiddleware")
 // Create a new report (authenticated users)
 router.post("/", authenticate, upload.single("image"), reportController.createReport)
-// Get all reports (admin only)
+// Get collector workload stats (admin only)
 router.get(
-    "/",
+    "/collectors",
     authenticate,
     authorize(["admin"]),
-    reportController.getAllReports
+    reportController.getCollectors
+)
+// Get assigned reports for collector
+router.get(
+    "/assigned",
+    authenticate,
+    authorize(["collector"]),
+    reportController.getAssignedReports
 )
 // Assign collector to report (admin only)
 router.post(
@@ -27,18 +34,38 @@ router.put(
     authorize(["collector"]),
     reportController.updateReportStatus
 )
+router.get(
+    "/workload",
+    authenticate,
+    authorize(["admin"]),
+    reportController.getCollectorWorkload
+)
 // Get my reports (citizens and collectors)
 router.get(
     "/my",
     authenticate,
     reportController.getMyReports
 )
-// Get collector workload stats (admin only)
+// Start working on a report (collector only)
+router.put(
+    "/start",
+    authenticate,
+    authorize(["collector"]),
+    reportController.startReport
+)
+// Mark report as completed (collector only)
+router.put(
+    "/complete",
+    authenticate,
+    authorize(["collector"]),
+    reportController.completeReport
+)
+// Get all reports (admin only)
 router.get(
-    "/collectors",
+    "/",
     authenticate,
     authorize(["admin"]),
-    reportController.getCollectors
+    reportController.getAllReports
 )
 
 module.exports = router
