@@ -149,3 +149,17 @@ await supabase.from("notifications").insert([
     }
 ])
 }
+// Get my reports (citizen only)
+exports.getMyReports = async (req, res) => {
+    const { data, error } = await supabase
+        .from("reports")
+        .select("*")
+        .eq("user_id", req.user.id)
+        .order("created_at", { ascending: false })
+
+    if (error) {
+        return res.status(400).json({ error: error.message })
+    }
+
+    res.json(data)
+}

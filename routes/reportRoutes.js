@@ -27,5 +27,11 @@ router.put(
     authorize(["collector"]),
     reportController.updateReportStatus
 )
+// Get my reports (citizens and collectors)
+router.get(
+    "/my",
+    authenticate,
+    reportController.getMyReports
+)
 
 module.exports = router

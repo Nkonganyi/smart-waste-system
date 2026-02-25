@@ -35,28 +35,33 @@ const jwt = require("jsonwebtoken")
 exports.login = async (req, res) => {
     const { email, password } = req.body
 
-    const { data: users, error } = await supabase
+    const { data: user, error } = await supabase
         .from("users")
         .select("*")
         .eq("email", email)
+        .single()
 
-    if (error || users.length === 0) {
-        return res.status(400).json({ message: "Invalid credentials" })
+    if (!user) {
+        return res.status(400).json({ error: "Invalid credentials" })
     }
 
-    const user = users[0]
+    const validPassword = await bcrypt.compare(password, user.password)
 
-    const isMatch = await bcrypt.compare(password, user.password)
-
-    if (!isMatch) {
-        return res.status(400).json({ message: "Invalid credentials" })
+    if (!validPassword) {
+        return res.status(400).json({ error: "Invalid credentials" })
     }
 
     const token = jwt.sign(
-        { id: user.id, role: user.role },
+        {
+            id: user.id,
+            role: user.role
+        },
         process.env.JWT_SECRET,
-        { expiresIn: "1h" }
+        { expiresIn: "1d" }
     )
 
-    res.json({ token })
+    res.json({
+        token,
+        role: user.role
+    })
 }
