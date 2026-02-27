@@ -90,11 +90,6 @@ exports.assignCollector = async (req, res) => {
         return res.status(400).json({ error: error.message })
     }
 
-    await supabase
-        .from("reports")
-        .update({ status: "in_progress" })
-        .eq("id", report_id)
-
     // Notify collector
     await supabase.from("notifications").insert([
         {
@@ -245,13 +240,21 @@ exports.startReport = async (req, res) => {
 }
 // Mark report as completed
 exports.completeReport = async (req, res) => {
-    const { report_id } = req.body
+    const { report_id, completion_image_url } = req.body
+
+    // Backend validation
+    if (!completion_image_url) {
+        return res.status(400).json({
+            error: "Completion image is required."
+        })
+    }
 
     const { error } = await supabase
         .from("reports")
         .update({
             status: "completed",
-            completed_at: new Date()
+            completed_at: new Date(),
+            completion_image_url
         })
         .eq("id", report_id)
 
@@ -260,4 +263,32 @@ exports.completeReport = async (req, res) => {
     }
 
     res.json({ message: "Report completed successfully" })
+}
+// Reject report assignment
+exports.rejectAssignment = async (req, res) => {
+    const { report_id } = req.body
+    const collectorId = req.user.id
+
+    // Remove assignment
+    const { error: deleteError } = await supabase
+        .from("assignments")
+        .delete()
+        .eq("report_id", report_id)
+        .eq("collector_id", collectorId)
+
+    if (deleteError) {
+        return res.status(400).json({ error: deleteError.message })
+    }
+
+    // Set report back to pending
+    const { error: updateError } = await supabase
+        .from("reports")
+        .update({ status: "pending" })
+        .eq("id", report_id)
+
+    if (updateError) {
+        return res.status(400).json({ error: updateError.message })
+    }
+
+    res.json({ message: "Assignment rejected successfully" })
 }

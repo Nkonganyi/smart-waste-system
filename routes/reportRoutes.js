@@ -60,6 +60,13 @@ router.put(
     authorize(["collector"]),
     reportController.completeReport
 )
+// Reject report assignment (collector only)
+router.put(
+    "/reject",
+    authenticate,
+    authorize(["collector"]),
+    reportController.rejectAssignment
+)
 // Get all reports (admin only)
 router.get(
     "/",
