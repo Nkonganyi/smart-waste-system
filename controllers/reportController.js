@@ -1,9 +1,9 @@
 const supabase = require("../config/supabase")
 // Create a new report (authenticated users)
 exports.createReport = async (req, res) => {
-    const { title, description, location } = req.body
+    const { title, description, location, priority } = req.body
 
-    if (!title || !description || !location) {
+    if (!title || !description || !location || !priority) {
         return res.status(400).json({ message: "All fields required" })
     }
 // Handle image upload if file is provided
@@ -37,6 +37,7 @@ exports.createReport = async (req, res) => {
                 title,
                 description,
                 location,
+                priority: priority || "normal",
                 image_url: imageUrl
             }
         ])

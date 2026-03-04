@@ -1,38 +1,120 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Collector Dashboard</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collector Dashboard - GroundClean</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+    <div class="dashboard">
+        <!-- Navbar -->
+        <nav class="navbar">
+            <div class="navbar-brand">GroundClean</div>
+            <div class="navbar-menu">
+                <span class="navbar-item">👷 Waste Collector Dashboard</span>
+            </div>
+            <button class="hamburger-toggle" id="sidebarToggle" onclick="toggleSidebar()">☰</button>
+            <div class="navbar-actions">
+                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode">
+                    <span id="theme-icon">🌙</span>
+                </button>
+                <button class="navbar-logout" onclick="logout()">Logout</button>
+            </div>
+        </nav>
 
-<div class="container" style="width: 800px;">
-    <h2>Collector Dashboard</h2>
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <ul class="sidebar-menu">
+                <li class="sidebar-menu-item"><a href="#" class="sidebar-link active">📈 Dashboard</a></li>
+                <li class="sidebar-menu-item"><a href="#reports" class="sidebar-link">📋 My Reports</a></li>
+                <li class="sidebar-menu-item"><a href="#notifications" class="sidebar-link">🔔 Notifications</a></li>
+            </ul>
+        </aside>
 
-    <h3>My Work Summary</h3>
-    <div id="workSummary"></div>
-    <hr>
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="container">
+                <div id="loading" class="spinner"></div>
 
-    <label>
-    <input type="checkbox" id="showCompleted" onchange="loadAssignedReports()">
-    Show Completed Jobs
-    </label>
+                <!-- Work Summary Section -->
+                <section class="dashboard-section">
+                    <div class="section-header">
+                        <h2 class="section-title">📊 Work Summary</h2>
+                    </div>
+                    <div id="workSummary"></div>
+                </section>
 
-    <hr>
+                <!-- Filter Section -->
+                <section class="dashboard-section">
+                    <div class="form-group">
+                        <label class="checkbox-wrapper">
+                            <input type="checkbox" id="showCompleted" onchange="loadAssignedReports()">
+                            <span>Show Completed Jobs</span>
+                        </label>
+                    </div>
+                </section>
 
-    <h3>Assigned Reports</h3>
-    <div id="reports"></div>
+                <!-- Assigned Reports Section -->
+                <section class="dashboard-section" id="reports">
+                    <div class="section-header">
+                        <h2 class="section-title">📦 Assigned Reports</h2>
+                    </div>
+                    <div id="reportsList" class="card-grid"></div>
+                </section>
 
-    <hr>
+                <!-- Notifications Section -->
+                <section class="dashboard-section" id="notifications">
+                    <div class="section-header">
+                        <h2 class="section-title">🔔 My Notifications</h2>
+                    </div>
+                    <ul id="notificationsList" style="list-style: none; padding: 0;"></ul>
+                </section>
+            </div>
+        </main>
+    </div>
 
-    <h3>My Notifications</h3>
-    <ul id="notifications"></ul>
+    <script src="js/api.js"></script>
+    <script src="js/collector.js"></script>
+    <script>
+        // Dark mode toggle
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            
+            const icon = document.getElementById('theme-icon');
+            icon.textContent = newTheme === 'dark' ? '☀️' : '🌙';
+        }
 
-    <button onclick="logout()">Logout</button>
-</div>
+        // Sidebar mobile toggle
+        function toggleSidebar() {
+            const sidebar = document.querySelector('.sidebar');
+            const toggle = document.getElementById('sidebarToggle');
+            sidebar.classList.toggle('active');
+            toggle.classList.toggle('active');
+        }
 
-<script src="js/api.js"></script>
-<script src="js/collector.js"></script>
+        // Close sidebar when clicking on a link
+        document.querySelectorAll('.sidebar-link').forEach(link => {
+            link.addEventListener('click', function() {
+                if (window.innerWidth <= 768) {
+                    document.querySelector('.sidebar').classList.remove('active');
+                    document.getElementById('sidebarToggle').classList.remove('active');
+                }
+            });
+        });
 
+        // Load saved theme on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            const icon = document.getElementById('theme-icon');
+            icon.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
+        });
+    </script>
 </body>
 </html>

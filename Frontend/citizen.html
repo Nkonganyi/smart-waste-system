@@ -1,34 +1,141 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Citizen Dashboard</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Citizen Dashboard - GroundClean</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+    <div class="dashboard">
+        <!-- Navbar -->
+        <nav class="navbar">
+            <div class="navbar-brand">GroundClean</div>
+            <div class="navbar-menu">
+                <span class="navbar-item">👤 Citizen Dashboard</span>
+            </div>
+            <button class="hamburger-toggle" id="sidebarToggle" onclick="toggleSidebar()">☰</button>
+            <div class="navbar-actions">
+                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode">
+                    <span id="theme-icon">🌙</span>
+                </button>
+                <button class="navbar-logout" onclick="logout()">Logout</button>
+            </div>
+        </nav>
 
-    <div class="container">
-        <h2>Submit Waste Report</h2>
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <ul class="sidebar-menu">
+                <li class="sidebar-menu-item"><a href="#" class="sidebar-link active">📈 Dashboard</a></li>
+                <li class="sidebar-menu-item"><a href="#reports" class="sidebar-link">📋 My Reports</a></li>
+                <li class="sidebar-menu-item"><a href="#notifications" class="sidebar-link">🔔 Notifications</a></li>
+            </ul>
+        </aside>
 
-        <input type="text" id="title" placeholder="Title">
-        <input type="text" id="description" placeholder="Description">
-        <input type="text" id="location" placeholder="Location">
-        <input type="file" id="image">
-        <button onclick="submitReport()">Submit Report</button>
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="container">
+                <div id="loading" class="spinner"></div>
 
-        <hr>
+                <!-- Submit Report Section -->
+                <section class="dashboard-section">
+                    <div class="section-header">
+                        <h2 class="section-title">🆕 Report Waste Issue</h2>
+                    </div>
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label class="form-label">Title *</label>
+                                <input type="text" id="title" placeholder="Brief title of the issue" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Description *</label>
+                                <textarea id="description" placeholder="Detailed description of the waste issue" required></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Location *</label>
+                                <input type="text" id="location" placeholder="Location or address of the waste" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Photo Evidence</label>
+                                <input type="file" id="image" accept="image/*">
+                                <small style="color: var(--text-tertiary);">Upload a photo for better documentation</small>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Priority Level</label>
+                                    <select id="priority">
+                                        <option value="low">Low - Can wait</option>
+                                        <option value="normal" selected>Normal - Routine</option>
+                                        <option value="high">High - Urgent</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <button class="btn btn-primary btn-block" onclick="submitReport()">Submit Report</button>
+                        </div>
+                    </div>
+                </section>
 
-        <h3>My Notifications</h3>
-        <ul id="notifications"></ul>
+                <!-- My Notifications Section -->
+                <section class="dashboard-section" id="notifications">
+                    <div class="section-header">
+                        <h2 class="section-title">🔔 My Notifications</h2>
+                    </div>
+                    <ul id="notificationsList" style="list-style: none; padding: 0;"></ul>
+                </section>
 
-        <hr>
-
-        <h3>My Reports</h3>
-        <div id="reports"></div>
-
-        <button onclick="logout()">Logout</button>
+                <!-- My Reports Section -->
+                <section class="dashboard-section" id="reports">
+                    <div class="section-header">
+                        <h2 class="section-title">📋 My Reports</h2>
+                    </div>
+                    <div id="reportsList" class="card-grid"></div>
+                </section>
+            </div>
+        </main>
     </div>
 
     <script src="js/api.js"></script>
     <script src="js/citizen.js"></script>
+    <script>
+        // Dark mode toggle
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            
+            const icon = document.getElementById('theme-icon');
+            icon.textContent = newTheme === 'dark' ? '☀️' : '🌙';
+        }
+
+        // Sidebar mobile toggle
+        function toggleSidebar() {
+            const sidebar = document.querySelector('.sidebar');
+            const toggle = document.getElementById('sidebarToggle');
+            sidebar.classList.toggle('active');
+            toggle.classList.toggle('active');
+        }
+
+        // Close sidebar when clicking on a link
+        document.querySelectorAll('.sidebar-link').forEach(link => {
+            link.addEventListener('click', function() {
+                if (window.innerWidth <= 768) {
+                    document.querySelector('.sidebar').classList.remove('active');
+                    document.getElementById('sidebarToggle').classList.remove('active');
+                }
+            });
+        });
+
+        // Load saved theme on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            const icon = document.getElementById('theme-icon');
+            icon.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
+        });
+    </script>
 </body>
 </html>

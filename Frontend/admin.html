@@ -1,38 +1,193 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Admin Dashboard</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - GroundClean</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+    <div class="dashboard">
+        <!-- Navbar -->
+        <nav class="navbar">
+            <div class="navbar-brand">GroundClean</div>
+            <div class="navbar-menu">
+                <span class="navbar-item">📊 Admin Dashboard</span>
+            </div>
+            <button class="hamburger-toggle" id="sidebarToggle" onclick="toggleSidebar()">☰</button>
+            <div class="navbar-actions">
+                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode">
+                    <span id="theme-icon">🌙</span>
+                </button>
+                <button class="navbar-logout" onclick="logout()">Logout</button>
+            </div>
+        </nav>
 
-<div class="container" style="width: 800px;">
-    <h2>Admin Dashboard</h2>
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <ul class="sidebar-menu">
+                <li class="sidebar-menu-item"><a href="#" class="sidebar-link active">📈 Dashboard</a></li>
+                <li class="sidebar-menu-item"><a href="#stats" class="sidebar-link">📊 Statistics</a></li>
+                <li class="sidebar-menu-item"><a href="#reports" class="sidebar-link">📋 All Reports</a></li>
+                <li class="sidebar-menu-item"><a href="#analytics" class="sidebar-link">📉 Analytics</a></li>
+            </ul>
+        </aside>
 
-    <h3>System Statistics</h3>
-    <div id="stats"></div>
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="container">
+                <div id="loading" class="spinner"></div>
 
-    <hr>
+                <!-- System Statistics Section -->
+                <section class="dashboard-section" id="stats">
+                    <div class="section-header">
+                        <h2 class="section-title">📊 System Statistics</h2>
+                    </div>
+                    <div id="statsContainer" class="card-grid"></div>
+                </section>
 
-    <h3>Reports Per Location</h3>
-    <canvas id="locationChart"></canvas>
+                <!-- Analytics Section -->
+                <section class="dashboard-section" id="analytics">
+                    <div class="section-header">
+                        <h2 class="section-title">📉 Analytics & Insights</h2>
+                    </div>
+                    <div class="card-grid" style="grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-header-title">Reports Per Location</h3>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="locationChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-header-title">Collector Workload</h3>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="collectorChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-grid" style="grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); margin-top: 1.5rem;">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-header-title">Report Status Distribution</h3>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="statusChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-header-title">Priority Breakdown</h3>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="priorityChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </section>
 
-    <hr>
-    
-    <h3>Collector Workload</h3>
-    <canvas id="collectorChart"></canvas>
+                <!-- All Reports Section -->
+                <section class="dashboard-section" id="reports">
+                    <div class="section-header">
+                        <h2 class="section-title">📋 All Reports</h2>
+                    </div>
+                    
+                    <!-- Filter Controls -->
+                    <div class="card" style="margin-bottom: 1.5rem;">
+                        <div class="card-header">
+                            <h3 class="card-header-title">🔍 Filters</h3>
+                        </div>
+                        <div class="card-body">
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                                <div class="form-group">
+                                    <label class="form-label">Status</label>
+                                    <select id="filterStatus" onchange="applyFilters()">
+                                        <option value="">All Statuses</option>
+                                        <option value="pending">Pending</option>
+                                        <option value="in_progress">In Progress</option>
+                                        <option value="completed">Completed</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Priority</label>
+                                    <select id="filterPriority" onchange="applyFilters()">
+                                        <option value="">All Priorities</option>
+                                        <option value="low">Low</option>
+                                        <option value="normal">Normal</option>
+                                        <option value="high">High</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Location</label>
+                                    <input type="text" id="filterLocation" placeholder="Search location..." onkeyup="applyFilters()">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Date Range</label>
+                                    <input type="date" id="filterDateFrom" onchange="applyFilters()">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">To</label>
+                                    <input type="date" id="filterDateTo" onchange="applyFilters()">
+                                </div>
+                                <div class="form-group" style="display: flex; align-items: flex-end;">
+                                    <button class="btn btn-secondary" onclick="clearFilters()">Clear Filters</button>
+                                </div>
+                            </div>
+                            <div id="filterStats" style="margin-top: 1rem; padding: 0.75rem; background: rgba(27, 94, 32, 0.1); border-radius: 6px; color: var(--text-secondary); font-size: 0.9rem;"></div>
+                        </div>
+                    </div>
+                    
+                    <div id="reportsList" class="card-grid"></div>
+                </section>
+            </div>
+        </main>
+    </div>
 
-    <hr>
+    <script src="js/api.js"></script>
+    <script src="js/admin.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Dark mode toggle
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            
+            const icon = document.getElementById('theme-icon');
+            icon.textContent = newTheme === 'dark' ? '☀️' : '🌙';
+        }
 
-    <h3>All Reports</h3>
-    <div id="reports"></div>
+        // Sidebar mobile toggle
+        function toggleSidebar() {
+            const sidebar = document.querySelector('.sidebar');
+            const toggle = document.getElementById('sidebarToggle');
+            sidebar.classList.toggle('active');
+            toggle.classList.toggle('active');
+        }
 
-    <button onclick="logout()">Logout</button>
-</div>
+        // Close sidebar when clicking on a link
+        document.querySelectorAll('.sidebar-link').forEach(link => {
+            link.addEventListener('click', function() {
+                if (window.innerWidth <= 768) {
+                    document.querySelector('.sidebar').classList.remove('active');
+                    document.getElementById('sidebarToggle').classList.remove('active');
+                }
+            });
+        });
 
-<script src="js/api.js"></script>
-<script src="js/admin.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
+        // Load saved theme on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            const icon = document.getElementById('theme-icon');
+            icon.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
+        });
+    </script>
 </body>
 </html>
