@@ -25,12 +25,17 @@
 
         <!-- Sidebar -->
         <aside class="sidebar">
-            <ul class="sidebar-menu">
-                <li class="sidebar-menu-item"><a href="#" class="sidebar-link active">📈 Dashboard</a></li>
-                <li class="sidebar-menu-item"><a href="#stats" class="sidebar-link">📊 Statistics</a></li>
-                <li class="sidebar-menu-item"><a href="#reports" class="sidebar-link">📋 All Reports</a></li>
-                <li class="sidebar-menu-item"><a href="#analytics" class="sidebar-link">📉 Analytics</a></li>
-            </ul>
+            <div class="sidebar-header">
+                <h3 style="margin: 0; color: white; font-size: 1.1rem;">GroundClean</h3>
+            </div>
+            <nav class="sidebar-menu">
+                <ul class="sidebar-list">
+                    <li><a href="#stats" class="sidebar-link active" onclick="selectTab('stats')">📈 Dashboard</a></li>
+                    <li><a href="#analytics" class="sidebar-link" onclick="selectTab('analytics')">📊 Analytics</a></li>
+                    <li><a href="#reports" class="sidebar-link" onclick="selectTab('reports')">📋 Reports</a></li>
+                    <li><a href="#collectors" class="sidebar-link" onclick="selectTab('collectors')">👷 Collectors</a></li>
+                </ul>
+            </nav>
         </aside>
 
         <!-- Main Content -->
@@ -98,10 +103,16 @@
                     <!-- Filter Controls -->
                     <div class="card" style="margin-bottom: 1.5rem;">
                         <div class="card-header">
-                            <h3 class="card-header-title">🔍 Filters</h3>
+                            <h3 class="card-header-title">🔍 Search & Filter Reports</h3>
                         </div>
                         <div class="card-body">
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+                                <div class="form-group" style="grid-column: 1 / -1;">
+                                    <label class="form-label">Search by Title or Description</label>
+                                    <input type="text" id="filterSearch" placeholder="Type to search..." onkeyup="applyFilters()" style="width: 100%;">
+                                </div>
+                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;">
                                 <div class="form-group">
                                     <label class="form-label">Status</label>
                                     <select id="filterStatus" onchange="applyFilters()">
@@ -122,28 +133,79 @@
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">Location</label>
-                                    <input type="text" id="filterLocation" placeholder="Search location..." onkeyup="applyFilters()">
+                                    <select id="filterLocation" onchange="applyFilters()">
+                                        <option value="">All Locations</option>
+                                    </select>
                                 </div>
                                 <div class="form-group">
-                                    <label class="form-label">Date Range</label>
+                                    <label class="form-label">From Date</label>
                                     <input type="date" id="filterDateFrom" onchange="applyFilters()">
                                 </div>
                                 <div class="form-group">
-                                    <label class="form-label">To</label>
+                                    <label class="form-label">To Date</label>
                                     <input type="date" id="filterDateTo" onchange="applyFilters()">
                                 </div>
                                 <div class="form-group" style="display: flex; align-items: flex-end;">
-                                    <button class="btn btn-secondary" onclick="clearFilters()">Clear Filters</button>
+                                    <button class="btn btn-secondary" onclick="clearFilters()" style="width: 100%;">Clear All</button>
                                 </div>
                             </div>
-                            <div id="filterStats" style="margin-top: 1rem; padding: 0.75rem; background: rgba(27, 94, 32, 0.1); border-radius: 6px; color: var(--text-secondary); font-size: 0.9rem;"></div>
+                            <div id="filterStats" style="margin-top: 1rem; padding: 0.75rem; background: rgba(27, 94, 32, 0.1); border-radius: 6px; color: var(--text-secondary); font-size: 0.85rem;"></div>
                         </div>
                     </div>
                     
                     <div id="reportsList" class="card-grid"></div>
                 </section>
+
+                <!-- Collector Management Section -->
+                <section class="dashboard-section" id="collectors" style="display: none;">
+                    <div class="section-header">
+                        <h2 class="section-title">👷 Collector Management</h2>
+                    </div>
+                    <div id="collectorStats" class="card-grid" style="margin-bottom: 2rem;"></div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-header-title">Collectors Performance</h3>
+                        </div>
+                        <div class="card-body" style="overflow-x: auto;">
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <thead style="border-bottom: 2px solid var(--light-bg);">
+                                    <tr>
+                                        <th style="padding: 1rem; text-align: left; font-weight: 600;">Name</th>
+                                        <th style="padding: 1rem; text-align: left; font-weight: 600;">Email</th>
+                                        <th style="padding: 1rem; text-align: center; font-weight: 600;">Active</th>
+                                        <th style="padding: 1rem; text-align: center; font-weight: 600;">Completed</th>
+                                        <th style="padding: 1rem; text-align: center; font-weight: 600;">Total</th>
+                                        <th style="padding: 1rem; text-align: center; font-weight: 600;">Rate</th>
+                                        <th style="padding: 1rem; text-align: center; font-weight: 600;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="collectorTable"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
             </div>
         </main>
+
+        <!-- Report Detail Modal -->
+        <div id="reportModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; overflow-y: auto;" onclick="closeReportModal(event)">
+            <div class="card" style="max-width: 600px; margin: 2rem auto; max-height: 90vh; overflow-y: auto;" onclick="event.stopPropagation()">
+                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <h2 class="card-header-title" id="modalTitle">Report Details</h2>
+                    <button onclick="closeReportModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-primary);">✕</button>
+                </div>
+                <div class="card-body">
+                    <div id="modalDescription"></div>
+                    <div id="modalImage" style="margin: 1.5rem 0;"></div>
+                    <div id="modalDetails"></div>
+                    <div id="modalHistory" style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--light-bg);"></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn btn-secondary" onclick="closeReportModal()">Close</button>
+                    <button class="btn btn-primary" id="modalActionBtn" style="margin-left: 0.5rem;"></button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="js/api.js"></script>

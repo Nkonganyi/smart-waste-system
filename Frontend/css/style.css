@@ -1184,3 +1184,137 @@ input[type='radio'] {
         max-width: calc(100vw - 2rem);
     }
 }
+
+/* ========================================
+   SECTION VISIBILITY
+   ======================================== */
+
+.dashboard-section {
+    display: block;
+    transition: opacity var(--transition-duration) ease;
+}
+
+.dashboard-section[style*="display: none"] {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* ========================================
+   MODAL STYLES
+   ======================================== */
+
+#reportModal {
+    animation: fadeIn 0.3s ease;
+}
+
+#reportModal .card {
+    animation: slideUp 0.3s ease;
+    box-shadow: var(--shadow-xl);
+    border: 1px solid var(--border-color);
+}
+
+#reportModal .card-header {
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-tertiary);
+}
+
+/* ========================================
+   TABLE STYLES
+   ======================================== */
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+table thead {
+    background: var(--bg-tertiary);
+    border-bottom: 2px solid var(--border-color);
+}
+
+table th {
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+table td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-secondary);
+}
+
+table tbody tr:hover {
+    background: var(--bg-tertiary);
+    transition: background var(--transition-duration) ease;
+}
+
+/* ========================================
+   SIDEBAR HEADER
+   ======================================== */
+
+.sidebar-header {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--primary-color);
+    color: white;
+    font-weight: 600;
+}
+
+[data-theme="dark"] .sidebar-header {
+    background: linear-gradient(135deg, var(--primary-color), #1b5e20);
+}
+
+.sidebar-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.sidebar-list li {
+    margin: 0;
+}
+
+/* ========================================
+   ANIMATIONS
+   ======================================== */
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ========================================
+   RESPONSIVE ADJUSTMENTS
+   ======================================== */
+
+@media (max-width: 768px) {
+    #reportModal {
+        padding: 0;
+    }
+
+    #reportModal .card {
+        border-radius: 0;
+        margin: 0;
+    }
+
+    table {
+        font-size: 0.85rem;
+    }
+
+    table th, table td {
+        padding: 0.75rem;
+    }
+}
