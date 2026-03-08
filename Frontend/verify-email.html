@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Email - GroundClean</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, var(--primary-color) 0%, #0d3d1e 100%);
+            padding: 1rem;
+        }
+
+        .verify-container {
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: var(--shadow-xl);
+            padding: 3rem;
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        h1 {
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .icon {
+            font-size: 60px;
+            margin-bottom: 1rem;
+        }
+
+        .success-icon { color: #2ecc71; }
+        .error-icon { color: #e74c3c; }
+        .warning-icon { color: #f39c12; }
+
+        .message {
+            font-size: 1rem;
+            margin: 1rem 0;
+            line-height: 1.6;
+            color: var(--text-secondary);
+        }
+
+        .alert {
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 8px;
+            border-left: 4px solid;
+        }
+
+        .alert-success {
+            background-color: #d4edda;
+            border-color: #2ecc71;
+            color: #155724;
+        }
+
+        .alert-error {
+            background-color: #f8d7da;
+            border-color: #e74c3c;
+            color: #721c24;
+        }
+
+        .alert-warning {
+            background-color: #fff3cd;
+            border-color: #f39c12;
+            color: #856404;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #0d3d1e;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-secondary {
+            background-color: #95a5a6;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #7f8c8d;
+            transform: translateY(-2px);
+        }
+
+        .state {
+            display: none;
+        }
+
+        .state.active {
+            display: block;
+        }
+
+        .tip {
+            background-color: #e8f5e9;
+            border-left: 4px solid var(--primary-color);
+            padding: 12px;
+            margin-top: 15px;
+            border-radius: 4px;
+            text-align: left;
+            font-size: 0.9rem;
+        }
+
+        .tip strong {
+            color: var(--primary-color);
+        }
+    </style>
+</head>
+<body>
+    <div class="verify-container">
+        <!-- Loading State -->
+        <div id="loadingState" class="state active">
+            <div class="spinner"></div>
+            <h1>Verifying Your Email</h1>
+            <p class="message">Please wait while we verify your email address...</p>
+        </div>
+
+        <!-- Success State -->
+        <div id="successState" class="state">
+            <div class="icon success-icon">✓</div>
+            <h1>Email Verified!</h1>
+            <p class="message">
+                Congratulations! Your email has been verified successfully.
+                You can now log in to your account and start using GroundClean.
+            </p>
+            <div class="alert alert-success">
+                <strong>Success:</strong> Your account is ready to use.
+            </div>
+            <div class="action-buttons">
+                <button class="btn btn-primary" onclick="window.location.href = '/login'">
+                    Go to Login
+                </button>
+                <button class="btn btn-secondary" onclick="window.location.href = '/'">
+                    Back to Home
+                </button>
+            </div>
+        </div>
+
+        <!-- Error State -->
+        <div id="errorState" class="state">
+            <div class="icon error-icon">✗</div>
+            <h1>Verification Failed</h1>
+            <p class="message" id="errorMessage">
+                We encountered an issue while verifying your email. Please try again.
+            </p>
+            <div class="alert alert-error">
+                <strong>Error:</strong> <span id="errorDetail"></span>
+            </div>
+            <div class="tip">
+                💡 <strong>Tip:</strong> This link may have expired. Registration links are valid for 24 hours.
+                If you need a new verification link, please register again or contact support.
+            </div>
+            <div class="action-buttons">
+                <button class="btn btn-secondary" onclick="window.location.href = '/login'">
+                    Go to Login
+                </button>
+                <button class="btn btn-secondary" onclick="window.location.href = '/register'">
+                    Create New Account
+                </button>
+            </div>
+        </div>
+
+        <!-- No Token State -->
+        <div id="noTokenState" class="state">
+            <div class="icon warning-icon">⚠</div>
+            <h1>Invalid Verification Link</h1>
+            <p class="message">
+                No verification token found. The link may be incomplete or has expired.
+            </p>
+            <div class="alert alert-warning">
+                <strong>Note:</strong> Verification links are valid for 24 hours.
+            </div>
+            <div class="action-buttons">
+                <button class="btn btn-secondary" onclick="window.location.href = '/login'">
+                    Go to Login
+                </button>
+                <button class="btn btn-secondary" onclick="window.location.href = '/register'">
+                    Register Again
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * Email Verification Page Handler
+         * Processes token from URL and verifies the user's email
+         */
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Get token from URL
+            const params = new URLSearchParams(window.location.search);
+            const token = params.get('token');
+
+            if (!token) {
+                // No token provided - show error
+                showState('noTokenState');
+                return;
+            }
+
+            try {
+                // Make API request to verify token
+                const response = await fetch(`/api/auth/verify-email?token=${encodeURIComponent(token)}`);
+                const data = await response.json();
+
+                if (response.ok && data.message) {
+                    // Success
+                    showState('successState');
+                } else {
+                    // Error from server
+                    showErrorState(data.message || data.error || 'Verification failed');
+                }
+            } catch (error) {
+                // Network error
+                console.error('Verification error:', error);
+                showErrorState('Network error. Please check your connection and try again.');
+            }
+        });
+
+        /**
+         * Helper function to show specific state
+         */
+        function showState(stateId) {
+            document.querySelectorAll('.state').forEach(state => {
+                state.classList.remove('active');
+            });
+            document.getElementById(stateId).classList.add('active');
+        }
+
+        /**
+         * Helper function to show error state with details
+         */
+        function showErrorState(errorMessage) {
+            document.getElementById('errorDetail').textContent = errorMessage;
+            showState('errorState');
+        }
+    </script>
+</body>
+</html>

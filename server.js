@@ -7,6 +7,9 @@ const app = express()
 app.use(cors())
 app.use(express.json())
 
+// Serve static files from Frontend directory
+app.use(express.static('./Frontend'))
+
 const authRoutes = require("./routes/authRoutes")
 const reportRoutes = require("./routes/reportRoutes")
 const notificationRoutes = require("./routes/notificationRoutes")

@@ -30,8 +30,8 @@ async function register() {
         return
     }
 
-    if (password.length < 6) {
-        showToast("Password must be at least 6 characters", "warning")
+    if (password.length < 8) {
+        showToast("Password must be at least 8 characters", "warning")
         btn.disabled = false
         hideLoading()
         return
@@ -47,10 +47,24 @@ async function register() {
     hideLoading()
 
     if (data.message) {
-        showToast("Registration successful! Redirecting to login...", "success")
+        // Show email verification message
+        showToast(
+            "Registration successful! Check your email to verify your account.",
+            "success"
+        )
+        
+        // Show verification message in modal or alert
         setTimeout(() => {
+            alert(
+                `Welcome ${name}!\n\n` +
+                `A verification link has been sent to:\n${email}\n\n` +
+                `Please click the link in your email to activate your account.\n\n` +
+                `The link will expire in 24 hours.`
+            )
+            
+            // Redirect to login page
             window.location.href = "index.html"
-        }, 2000)
+        }, 1500)
     } else {
         showToast(data.error || "Registration failed", "error")
         btn.disabled = false
@@ -93,6 +107,26 @@ async function login() {
                 window.location.href = "citizen.html"
             }
         }, 1500)
+    } else if (data.error === "Account not verified") {
+        // User email not verified
+        showToast(
+            "Please verify your email address before logging in. Check your inbox for the verification link.",
+            "warning"
+        )
+        alert(
+            "Email Not Verified\n\n" +
+            "Your account has been created, but you need to verify your email first.\n\n" +
+            "Please check your email for a verification link and click it to activate your account.\n\n" +
+            "The link will expire in 24 hours."
+        )
+        btn.disabled = false
+    } else if (data.error === "Account suspended") {
+        // Account suspended
+        showToast(
+            "Your account has been suspended. Please contact support.",
+            "error"
+        )
+        btn.disabled = false
     } else {
         showToast(data.error || "Login failed", "error")
         btn.disabled = false
