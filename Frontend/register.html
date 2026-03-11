@@ -107,7 +107,7 @@
             <div class="form-group">
                 <label class="form-label">Password *</label>
                 <input type="password" id="password" placeholder="••••••••" required tabindex="3">
-                <small style="color: var(--text-tertiary);">Minimum 6 characters</small>
+                <small style="color: var(--text-tertiary);">Minimum 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char</small>
             </div>
             <div class="form-group">
                 <label class="form-label">Account Type *</label>
@@ -144,7 +144,7 @@
 
         // Load saved theme on page load
         window.addEventListener('DOMContentLoaded', () => {
-            const savedTheme = localStorage.getItem('theme') || 'light';
+            const savedTheme = localStorage.getItem('theme') || 'dark';
             document.documentElement.setAttribute('data-theme', savedTheme);
             const icon = document.getElementById('theme-icon');
             icon.textContent = savedTheme === 'dark' ? '☀️' : '🌙';

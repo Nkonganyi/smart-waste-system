@@ -100,12 +100,23 @@
                 <label class="form-label">Email Address</label>
                 <input type="email" id="email" placeholder="your@email.com" required tabindex="1">
             </div>
-            <div class="form-group">
+            <div class="form-group" style="margin-bottom: 0.5rem;">
                 <label class="form-label">Password</label>
                 <input type="password" id="password" placeholder="••••••••" required tabindex="2">
             </div>
+            <div style="text-align: right; margin-bottom: 1.5rem;">
+                <a href="#" onclick="event.preventDefault(); forgotPassword();" style="color: var(--primary-color); font-size: 0.85rem; text-decoration: none; font-weight: 500;">Forgot Password?</a>
+            </div>
             <button type="submit" id="loginBtn" class="btn btn-primary btn-block" tabindex="3">Sign In</button>
         </form>
+        <button
+            type="button"
+            class="btn btn-secondary btn-block"
+            style="margin-top: 0.75rem;"
+            onclick="resendVerification()"
+        >
+            Resend Verification Email
+        </button>
 
         <div class="auth-footer">
             <p>Don't have an account? <a href="register.html">Sign Up</a></p>
@@ -131,7 +142,7 @@
 
         // Load saved theme on page load
         window.addEventListener('DOMContentLoaded', () => {
-            const savedTheme = localStorage.getItem('theme') || 'light';
+            const savedTheme = localStorage.getItem('theme') || 'dark';
             document.documentElement.setAttribute('data-theme', savedTheme);
             const icon = document.getElementById('theme-icon');
             icon.textContent = savedTheme === 'dark' ? '☀️' : '🌙';

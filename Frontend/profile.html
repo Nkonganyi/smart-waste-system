@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile - GroundClean</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Navbar -->
+        <nav class="navbar">
+            <div class="navbar-brand">GroundClean</div>
+            <div class="navbar-menu">
+                <span class="navbar-item">👤 My Profile</span>
+            </div>
+            <button class="hamburger-toggle" id="sidebarToggle" onclick="toggleSidebar()">☰</button>
+            <div class="navbar-actions">
+                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode">
+                    <span id="theme-icon">🌙</span>
+                </button>
+                <button class="navbar-logout" onclick="logout()">Logout</button>
+            </div>
+        </nav>
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <ul class="sidebar-menu">
+                <li class="sidebar-menu-item"><a href="#" id="sidebarDashLink" class="sidebar-link">📈 Dashboard</a></li>
+                <li class="sidebar-menu-item"><a href="profile.html" class="sidebar-link active">👤 My Profile</a></li>
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="container">
+                <div id="loading" class="spinner" style="display: none;"></div>
+
+                <div class="section-header">
+                    <h2 class="section-title">👤 User Profile</h2>
+                </div>
+
+                <div class="card" style="max-width: 800px; margin: 0 auto;">
+                    <div class="card-header">
+                        <div style="display: flex; align-items: center; gap: 1.5rem;">
+                            <div id="avatarCircle" style="width: 60px; height: 60px; background: var(--primary-color); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: bold;">U</div>
+                            <div>
+                                <h3 id="userNameHeading" style="margin: 0;">User Name</h3>
+                                <p id="userRoleBadge" class="badge" style="margin: 0.25rem 0 0 0;">Role</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <form id="profileForm">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Full Name</label>
+                                    <input type="text" id="name" name="name" required minlength="2">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Email (Read-only)</label>
+                                    <input type="email" id="email" style="background: var(--bg-tertiary); cursor: not-allowed;" readonly>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Phone Number</label>
+                                    <input type="text" id="phone" name="phone" placeholder="+1 234 567 8900">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Address</label>
+                                    <input type="text" id="address" name="address" placeholder="123 Waste St, Clean City">
+                                </div>
+                            </div>
+
+                            <div class="form-group" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                                <label class="form-label">Account Status</label>
+                                <p id="statusText" style="font-weight: 600;">Verifying...</p>
+                            </div>
+
+                            <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1rem;">
+                                <button type="button" class="btn btn-secondary" onclick="goBack()">Cancel</button>
+                                <button type="submit" class="btn btn-primary" id="saveBtn">Save Changes</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/profile.js"></script>
+    <script>
+        // UI Helpers for Profile Page
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            document.getElementById('theme-icon').textContent = newTheme === 'dark' ? '☀️' : '🌙';
+        }
+
+        function toggleSidebar() {
+            document.querySelector('.sidebar').classList.toggle('active');
+        }
+
+        function goBack() {
+            const role = localStorage.getItem("role");
+            if (role === "admin") window.location.href = "admin.html";
+            else if (role === "collector") window.location.href = "collector.html";
+            else window.location.href = "citizen.html";
+        }
+
+        // Set initial state
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            document.getElementById('theme-icon').textContent = savedTheme === 'dark' ? '☀️' : '🌙';
+            
+            const role = localStorage.getItem("role");
+            const dashLink = document.getElementById("sidebarDashLink");
+            if (role === "admin") dashLink.href = "admin.html";
+            else if (role === "collector") dashLink.href = "collector.html";
+            else dashLink.href = "citizen.html";
+        });
+    </script>
+</body>
+</html>

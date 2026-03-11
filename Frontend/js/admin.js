@@ -1,8 +1,52 @@
-// simple loading controls
+// admin.js - Handles admin-specific frontend logic and Chart.js integration
+
+let charts = {}
+let allReports = []
+let allCollectors = []
+
+// Require admin role on load
+window.addEventListener("DOMContentLoaded", () => {
+    if (!requireAuth("admin")) return
+    loadTheme()
+    
+    // Check if redirecting from email verify link
+    const params = new URLSearchParams(window.location.search)
+    if (params.get("tab") === "collectors") {
+        selectTab("collectors")
+    } else {
+        selectTab("stats")
+    }
+})
+
+function loadTheme() {
+    const savedTheme = localStorage.getItem("theme") || "dark"
+    document.documentElement.setAttribute("data-theme", savedTheme)
+    const icon = document.getElementById("theme-icon")
+    if (icon) icon.textContent = savedTheme === "dark" ? "☀️" : "🌙"
+}
+
+function toggleTheme() {
+    const html = document.documentElement
+    const newTheme = html.getAttribute("data-theme") === "dark" ? "light" : "dark"
+    html.setAttribute("data-theme", newTheme)
+    localStorage.setItem("theme", newTheme)
+    const icon = document.getElementById("theme-icon")
+    if (icon) icon.textContent = newTheme === "dark" ? "☀️" : "🌙"
+    
+    // Update charts theme
+    Object.values(charts).forEach(c => {
+        c.options.plugins.legend.labels.color = newTheme === "dark" ? "#E0E0E0" : "#2E3B12"
+        c.options.scales.x.ticks.color = newTheme === "dark" ? "#A5D6A7" : "#556B2F"
+        c.options.scales.y.ticks.color = newTheme === "dark" ? "#A5D6A7" : "#556B2F"
+        c.update()
+    })
+}
+
 function showLoading() {
     const spinner = document.getElementById("loading")
     if (spinner) spinner.style.display = "block"
 }
+
 function hideLoading() {
     const spinner = document.getElementById("loading")
     if (spinner) spinner.style.display = "none"
@@ -13,197 +57,286 @@ function logout() {
     window.location.href = "index.html"
 }
 
-async function loadStats() {
-    const data = await apiRequest("/dashboard/admin")
+// Tab navigation system
+function selectTab(tabId) {
+    // Hide all sections, remove active class
+    document.querySelectorAll(".dashboard-section").forEach(sec => sec.style.display = "none")
+    document.querySelectorAll(".sidebar-link").forEach(link => link.classList.remove("active"))
     
-    // Calculate additional metrics
-    const completionRate = data.totalReports > 0 
-        ? Math.round((data.completed / data.totalReports) * 100) 
-        : 0
-    const assigned = (data.inProgress || 0) + (data.pending || 0)
-
-    const statsDiv = document.getElementById("statsContainer")
+    // Show selected section, add active class
+    const section = document.getElementById(tabId)
+    if (section) section.style.display = "block"
     
-    // Build alert for high priority if any
-    const highPriorityAlert = data.highPriority > 0 
-        ? `<div class="alert alert-warning mb-3">
-            <strong>⚠️ ${data.highPriority} High Priority Report${data.highPriority !== 1 ? 's' : ''}</strong> 
-            - Please review and assign collectors immediately
-        </div>`
-        : ''
+    const link = document.querySelector(`a[href="#${tabId}"]`)
+    if (link) link.classList.add("active")
     
-    statsDiv.innerHTML = `
-        ${highPriorityAlert}
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
-            <div class="card stat-card">
-                <div class="card-body">
-                    <div class="stat-metric">
-                        <div class="stat-value" style="color: var(--primary-color);">${data.totalReports}</div>
-                        <div class="stat-label">Total Reports</div>
-                    </div>
-                </div>
-            </div>
-            <div class="card stat-card">
-                <div class="card-body">
-                    <div class="stat-metric">
-                        <div class="stat-value" style="color: var(--warning-color);">${data.pending || 0}</div>
-                        <div class="stat-label">Pending</div>
-                        <div class="stat-subtext">${data.pending || 0} awaiting assignment</div>
-                    </div>
-                </div>
-            </div>
-            <div class="card stat-card">
-                <div class="card-body">
-                    <div class="stat-metric">
-                        <div class="stat-value" style="color: var(--info-color);">${assigned}</div>
-                        <div class="stat-label">Assigned</div>
-                        <div class="stat-subtext">Out in field</div>
-                    </div>
-                </div>
-            </div>
-            <div class="card stat-card">
-                <div class="card-body">
-                    <div class="stat-metric">
-                        <div class="stat-value" style="color: #f59e0b;">${data.inProgress || 0}</div>
-                        <div class="stat-label">In Progress</div>
-                        <div class="stat-subtext">Being worked on</div>
-                    </div>
-                </div>
-            </div>
-            <div class="card stat-card">
-                <div class="card-body">
-                    <div class="stat-metric">
-                        <div class="stat-value" style="color: var(--success-color);">${data.completed || 0}</div>
-                        <div class="stat-label">Completed</div>
-                        <div class="stat-subtext">${completionRate}% done</div>
-                    </div>
-                </div>
-            </div>
-            <div class="card stat-card">
-                <div class="card-body">
-                    <div class="stat-metric">
-                        <div class="stat-value" style="color: #dc2626;">${data.highPriority || 0}</div>
-                        <div class="stat-label">High Priority</div>
-                        <div class="stat-subtext">Urgent items</div>
-                    </div>
-                </div>
-            </div>
-            <div class="card stat-card" style="grid-column: 1 / -1;">
-                <div class="card-body">
-                    <div class="stat-metric">
-                        <div style="display: flex; align-items: center; gap: 1rem;">
-                            <div style="flex: 1;">
-                                <div class="stat-label mb-2">Overall Completion Rate</div>
-                                <div style="background: var(--light-bg); border-radius: 20px; height: 24px; overflow: hidden;">
-                                    <div style="background: linear-gradient(90deg, var(--success-color), #34d399); height: 100%; width: ${completionRate}%; transition: width 0.3s ease; display: flex; align-items: center; justify-content: flex-end; padding-right: 0.5rem; color: white; font-weight: 700; font-size: 0.75rem;">
-                                        ${completionRate}%
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `
-}
-// Load reports and stats on page load
-let allReports = [] // Store all reports for filtering
-let collectors = []
-
-async function loadReports() {
-    showLoading()
-    allReports = await apiRequest("/reports")
-    collectors = await apiRequest("/reports/collectors")
-    hideLoading()
-    renderReports(allReports)
-    populateLocationFilter()
-    loadCollectorStats()
-    loadCollectors()
-}
-
-// Render reports with cleaner summary view
-function renderReports(reports) {
-    const container = document.getElementById("reportsList")
-    container.innerHTML = ""
-
-    if (reports.length === 0) {
-        container.innerHTML = `<div class="card" style="grid-column: 1 / -1;"><div class="card-body"><p style="text-align: center; color: var(--text-secondary);">No reports found matching your filters.</p></div></div>`
-        return
+    // Close sidebar on mobile
+    if (window.innerWidth <= 768) {
+        document.querySelector(".sidebar")?.classList.remove("active")
+        document.getElementById("sidebarToggle")?.classList.remove("active")
     }
 
-    reports.forEach(report => {
-        const card = document.createElement("div")
-        card.className = "card"
-        card.style.cursor = "pointer"
-        card.onclick = () => openReportModal(report)
+    // Load data based on tab
+    if (tabId === "stats") {
+        loadDashboardStats()
+    } else if (tabId === "analytics") {
+        loadAnalytics()
+    } else if (tabId === "reports") {
+        loadAllData()
+    } else if (tabId === "collectors") {
+        loadCollectorsTab()
+    }
+}
 
-        const descPreview = report.description.substring(0, 80) + (report.description.length > 80 ? "..." : "")
-
-        card.innerHTML = `
-            <div class="card-header" style="padding: 0.75rem 1rem;">
-                <h3 class="card-header-title" style="margin: 0; font-size: 1rem;">${report.title}</h3>
-            </div>
-            <div class="card-body" style="padding: 0.75rem 1rem;">
-                <p style="margin: 0.5rem 0; font-size: 0.9rem; color: var(--text-secondary);">${descPreview}</p>
-                <div style="display: flex; gap: 0.5rem; margin: 0.75rem 0; flex-wrap: wrap;">
-                    <span class="badge badge-status ${report.status}">${report.status}</span>
-                    <span class="badge badge-priority ${report.priority}">${report.priority}</span>
-                    <span style="font-size: 0.85rem; color: var(--text-tertiary); align-self: center;">📍 ${report.location}</span>
+// -------------------------------------------------------------
+// DASHBOARD STATS (Tab 1)
+// -------------------------------------------------------------
+async function loadDashboardStats() {
+    showLoading()
+    try {
+        const data = await apiRequest("/dashboard/admin")
+        
+        const container = document.getElementById("statsContainer")
+        if (!container) return
+        
+        container.innerHTML = `
+            <div class="card">
+                <div class="card-body text-center">
+                    <h3 style="font-size: 2.5rem; color: var(--primary-color); margin: 0;">${data.total_reports || 0}</h3>
+                    <p style="color: var(--text-secondary); margin: 0;">Total Reports</p>
                 </div>
             </div>
-            <div class="card-footer" style="padding: 0.75rem 1rem; font-size: 0.85rem;">
-                Click to view details & assign collector
+            <div class="card">
+                <div class="card-body text-center">
+                    <h3 style="font-size: 2.5rem; color: var(--warning-color); margin: 0;">${data.pending_reports || 0}</h3>
+                    <p style="color: var(--text-secondary); margin: 0;">Pending Assignment</p>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-body text-center">
+                    <h3 style="font-size: 2.5rem; color: var(--success-color); margin: 0;">${data.completed_reports || 0}</h3>
+                    <p style="color: var(--text-secondary); margin: 0;">Completed Cleanups</p>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-body text-center">
+                    <h3 style="font-size: 2.5rem; color: #4fc3f7; margin: 0;">${data.active_collectors || 0}</h3>
+                    <p style="color: var(--text-secondary); margin: 0;">Active Collectors</p>
+                </div>
             </div>
         `
+    } catch (err) {
+        console.error("Stats error:", err)
+        showToast("Failed to load dashboard statistics", "error")
+    }
+    hideLoading()
+}
 
-        container.appendChild(card)
+// -------------------------------------------------------------
+// ANALYTICS & CHARTS (Tab 2)
+// -------------------------------------------------------------
+async function loadAnalytics() {
+    showLoading()
+    try {
+        // We need all reports to calculate the status & priority pie charts manually
+        const reportsData = await apiRequest("/reports")
+        const locationsData = await apiRequest("/dashboard/locations")
+        const collectorsData = await apiRequest("/dashboard/collectors")
+        
+        if (Array.isArray(reportsData)) allReports = reportsData
+        
+        initCharts(locationsData, collectorsData)
+    } catch (err) {
+        console.error("Analytics error:", err)
+        showToast("Failed to load analytics data", "error")
+    }
+    hideLoading()
+}
+
+function initCharts(locationsData, collectorsData) {
+    const isDark = document.documentElement.getAttribute("data-theme") === "dark"
+    const textColor = isDark ? "#E0E0E0" : "#2E3B12"
+    
+    // Helper to configure charts cleanly
+    const commonOptions = {
+        responsive: true,
+        plugins: { legend: { labels: { color: textColor } } }
+    }
+    
+    const barOptions = {
+        ...commonOptions,
+        scales: {
+            x: { ticks: { color: textColor } },
+            y: { ticks: { color: textColor, precision: 0 } }
+        }
+    }
+
+    // 1. Locations Chart
+    const locCtx = document.getElementById("locationChart")
+    if (locCtx) {
+        if (charts.location) charts.location.destroy()
+        charts.location = new Chart(locCtx, {
+            type: "bar",
+            data: {
+                labels: locationsData.map(d => d.location.substring(0, 15)),
+                datasets: [{
+                    label: "Reports",
+                    data: locationsData.map(d => parseInt(d.count, 10)),
+                    backgroundColor: "#66BB6A",
+                    borderRadius: 4
+                }]
+            },
+            options: barOptions
+        })
+    }
+
+    // 2. Collectors Workload Chart
+    const colCtx = document.getElementById("collectorChart")
+    if (colCtx) {
+        if (charts.collector) charts.collector.destroy()
+        charts.collector = new Chart(colCtx, {
+            type: "bar",
+            data: {
+                labels: collectorsData.map(d => d.collector),
+                datasets: [{
+                    label: "Assigned Jobs",
+                    data: collectorsData.map(d => parseInt(d.count, 10)),
+                    backgroundColor: "#FFCA28",
+                    borderRadius: 4
+                }]
+            },
+            options: barOptions
+        })
+    }
+    
+    // Generate data for pie charts from allReports
+    let pending = 0, in_prog = 0, comp = 0
+    let high = 0, norm = 0, low = 0
+    
+    allReports.forEach(r => {
+        if (r.status === "pending") pending++
+        if (r.status === "in_progress") in_prog++
+        if (r.status === "completed") comp++
+        
+        if (r.priority === "high") high++
+        if (r.priority === "normal") norm++
+        if (r.priority === "low") low++
+    })
+
+    // 3. Status Pie Chart
+    const statCtx = document.getElementById("statusChart")
+    if (statCtx) {
+        if (charts.status) charts.status.destroy()
+        charts.status = new Chart(statCtx, {
+            type: "doughnut",
+            data: {
+                labels: ["Pending", "In Progress", "Completed"],
+                datasets: [{
+                    data: [pending, in_prog, comp],
+                    backgroundColor: ["#FFCA28", "#4FC3F7", "#66BB6A"],
+                    borderWidth: 0
+                }]
+            },
+            options: commonOptions
+        })
+    }
+    
+    // 4. Priority Pie Chart
+    const priCtx = document.getElementById("priorityChart")
+    if (priCtx) {
+        if (charts.priority) charts.priority.destroy()
+        charts.priority = new Chart(priCtx, {
+            type: "doughnut",
+            data: {
+                labels: ["High", "Normal", "Low"],
+                datasets: [{
+                    data: [high, norm, low],
+                    backgroundColor: ["#EF5350", "#FFCA28", "#81C784"],
+                    borderWidth: 0
+                }]
+            },
+            options: commonOptions
+        })
+    }
+}
+
+// -------------------------------------------------------------
+// ALL REPORTS & FILTERING (Tab 3)
+// -------------------------------------------------------------
+async function loadAllData() {
+    showLoading()
+    try {
+        const [reportsRes, collectorsRes] = await Promise.all([
+            apiRequest("/reports"),
+            apiRequest("/reports/collectors")
+        ])
+        
+        if (Array.isArray(reportsRes)) allReports = reportsRes
+        if (Array.isArray(collectorsRes)) allCollectors = collectorsRes
+        
+        populateLocationFilter()
+        applyFilters() // Render initially
+    } catch (err) {
+        console.error("Data error:", err)
+        showToast("Failed to load reports data", "error")
+    }
+    hideLoading()
+}
+
+function populateLocationFilter() {
+    const sel = document.getElementById("filterLocation")
+    if (!sel) return
+    
+    const locs = new Set(allReports.map(r => r.location))
+    
+    // Keep internal options but reset others
+    sel.innerHTML = '<option value="">All Locations</option>'
+    
+    Array.from(locs).sort().forEach(loc => {
+        sel.innerHTML += \`<option value="\${loc}">\${loc}</option>\`
     })
 }
 
-// Filter reports based on criteria
 function applyFilters() {
-    const search = document.getElementById("filterSearch").value.toLowerCase()
-    const status = document.getElementById("filterStatus").value
-    const priority = document.getElementById("filterPriority").value
-    const location = document.getElementById("filterLocation").value
-    const dateFrom = document.getElementById("filterDateFrom").value
-    const dateTo = document.getElementById("filterDateTo").value
-
-    const filtered = allReports.filter(report => {
-        // Search filter (title + description)
-        if (search && !report.title.toLowerCase().includes(search) && !report.description.toLowerCase().includes(search)) {
-            return false
+    const searchTerm = document.getElementById("filterSearch")?.value.toLowerCase() || ""
+    const status = document.getElementById("filterStatus")?.value || ""
+    const priority = document.getElementById("filterPriority")?.value || ""
+    const location = document.getElementById("filterLocation")?.value || ""
+    const dateFrom = document.getElementById("filterDateFrom")?.value
+    const dateTo = document.getElementById("filterDateTo")?.value
+    
+    // Filter array
+    const filtered = allReports.filter(r => {
+        // Text Match
+        if (searchTerm) {
+            const matchTitle = (r.title || "").toLowerCase().includes(searchTerm)
+            const matchDesc = (r.description || "").toLowerCase().includes(searchTerm)
+            const matchId = (r.id || "").toLowerCase().includes(searchTerm)
+            if (!matchTitle && !matchDesc && !matchId) return false
         }
-
-        // Status filter
-        if (status && report.status !== status) return false
-
-        // Priority filter
-        if (priority && report.priority !== priority) return false
-
-        // Location filter
-        if (location && report.location !== location) return false
-
-        // Date range filter
+        
+        // Dropdown exact matches
+        if (status && r.status !== status) return false
+        if (priority && r.priority !== priority) return false
+        if (location && r.location !== location) return false
+        
+        // Date range match
         if (dateFrom || dateTo) {
-            const reportDate = new Date(report.created_at || new Date()).toISOString().split('T')[0]
-            if (dateFrom && reportDate < dateFrom) return false
-            if (dateTo && reportDate > dateTo) return false
+            const rDateStr = r.created_at.split("T")[0] // Extract "YYYY-MM-DD" reliably
+            if (dateFrom && rDateStr < dateFrom) return false
+            if (dateTo && rDateStr > dateTo) return false
         }
-
+        
         return true
     })
-
-    // Update filter stats
-    const statsDiv = document.getElementById("filterStats")
-    const activeFilters = [search, status, priority, location, dateFrom, dateTo].filter(f => f).length
-    statsDiv.textContent = `Showing ${filtered.length} of ${allReports.length} reports${activeFilters > 0 ? ` (${activeFilters} filter${activeFilters > 1 ? 's' : ''} active)` : ''}`
-
-    renderReports(filtered)
+    
+    // Update stats label
+    const statEl = document.getElementById("filterStats")
+    if (statEl) statEl.textContent = `Showing ${filtered.length} of ${allReports.length} total reports`
+    
+    renderReportsList(filtered)
 }
 
-// Clear all filters
 function clearFilters() {
     document.getElementById("filterSearch").value = ""
     document.getElementById("filterStatus").value = ""
@@ -211,627 +344,291 @@ function clearFilters() {
     document.getElementById("filterLocation").value = ""
     document.getElementById("filterDateFrom").value = ""
     document.getElementById("filterDateTo").value = ""
-    
-    const statsDiv = document.getElementById("filterStats")
-    statsDiv.textContent = `Showing all ${allReports.length} reports`
-    
-    renderReports(allReports)
+    applyFilters()
 }
 
-// Populate location filter dynamically
-function populateLocationFilter() {
-    const locations = [...new Set(allReports.map(r => r.location))].sort()
-    const select = document.getElementById("filterLocation")
-    const currentValue = select.value
+function renderReportsList(reports) {
+    const container = document.getElementById("reportsList")
+    if (!container) return
     
-    select.innerHTML = '<option value="">All Locations</option>' + locations.map(loc => 
-        `<option value="${loc}" ${currentValue === loc ? 'selected' : ''}>${loc}</option>`
-    ).join('')
-}
-
-// Open report detail modal
-function openReportModal(report) {
-    const modal = document.getElementById("reportModal")
-    document.getElementById("modalTitle").textContent = report.title
-    
-    // Description
-    document.getElementById("modalDescription").innerHTML = `
-        <div style="color: var(--text-secondary); line-height: 1.6; margin-bottom: 1rem;">
-            ${report.description}
-        </div>
-    `
-    
-    // Image
-    if (report.image_url) {
-        document.getElementById("modalImage").innerHTML = `<img src="${report.image_url}" style="max-width: 100%; border-radius: 8px; height: auto;">`
-    } else {
-        document.getElementById("modalImage").innerHTML = ""
+    container.innerHTML = ""
+    if (reports.length === 0) {
+        container.innerHTML = `<div class="card" style="grid-column: 1/-1;"><div class="card-body text-center" style="color:var(--text-secondary);">No reports match the current filters.</div></div>`
+        return
     }
     
-    // Details
-    const assignedCollector = collectors.find(c => c.id === report.assigned_to)
-    const createdDate = new Date(report.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    // Render list
+    reports.forEach(report => {
+        const card = document.createElement("div")
+        card.className = "card"
+        card.style.cursor = "pointer"
+        card.style.transition = "transform 0.2s"
+        card.onmouseover = () => card.style.transform = "translateY(-2px)"
+        card.onmouseout = () => card.style.transform = "translateY(0)"
+        card.onclick = () => openReportModal(report.id)
+        
+        // Identify assigned collector name
+        let assignedText = "Unassigned"
+        if (report.assigned_to) {
+            const col = allCollectors.find(c => c.id === report.assigned_to)
+            if (col) assignedText = `Assigned: ${col.name}`
+        }
+
+        const dateStr = new Date(report.created_at).toLocaleDateString()
+        
+        card.innerHTML = `
+            <div class="card-header" style="display:flex; justify-content:space-between; align-items:flex-start;">
+                <h3 class="card-header-title" style="margin:0; font-size:1.1rem; flex:1;">${report.title}</h3>
+                <span class="badge badge-priority ${report.priority}">${report.priority}</span>
+            </div>
+            <div class="card-body" style="padding-top:0.5rem;">
+                <p style="color:var(--text-secondary); font-size:0.9rem; margin-bottom:1rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                    ${report.description}
+                </p>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+                    <span style="font-size:0.85rem; font-weight:600;"><span style="color:var(--primary-color);">📍</span> ${report.location.substring(0, 20)}</span>
+                    <span style="font-size:0.8rem; color:var(--text-tertiary);">${dateStr}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span class="badge badge-status ${report.status}">${formatStatus(report.status)}</span>
+                    <span style="font-size:0.8rem; color: ${report.assigned_to ? 'var(--primary-color)' : 'var(--warning-color)'}; font-weight:600;">
+                        ${assignedText}
+                    </span>
+                </div>
+            </div>
+        `
+        container.appendChild(card)
+    })
+}
+
+function formatStatus(status) {
+    if (status === "in_progress") return "In Progress"
+    return status.charAt(0).toUpperCase() + status.slice(1)
+}
+
+// -------------------------------------------------------------
+// MODAL LOGIC & ASSIGNMENT
+// -------------------------------------------------------------
+let currentModalReportId = null
+
+function openReportModal(reportId) {
+    const report = allReports.find(r => r.id === reportId)
+    if (!report) return
     
-    document.getElementById("modalDetails").innerHTML = `
-        <div style="display: grid; gap: 0.75rem;">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                <div>
-                    <span style="color: var(--text-tertiary); font-size: 0.85rem;">Status</span>
-                    <div style="margin-top: 0.25rem;">
-                        <span class="badge badge-status ${report.status}">${report.status}</span>
-                    </div>
-                </div>
-                <div>
-                    <span style="color: var(--text-tertiary); font-size: 0.85rem;">Priority</span>
-                    <div style="margin-top: 0.25rem;">
-                        <span class="badge badge-priority ${report.priority}">${report.priority}</span>
-                    </div>
-                </div>
-                <div>
-                    <span style="color: var(--text-tertiary); font-size: 0.85rem;">📍 Location</span>
-                    <div style="margin-top: 0.25rem; font-weight: 500;">${report.location}</div>
-                </div>
-                <div>
-                    <span style="color: var(--text-tertiary); font-size: 0.85rem;">👤 Assigned To</span>
-                    <div style="margin-top: 0.25rem; font-weight: 500;">${assignedCollector ? assignedCollector.name : 'Unassigned'}</div>
-                </div>
-                <div>
-                    <span style="color: var(--text-tertiary); font-size: 0.85rem;">📅 Created</span>
-                    <div style="margin-top: 0.25rem; font-weight: 500;">${createdDate}</div>
-                </div>
-                <div>
-                    <span style="color: var(--text-tertiary); font-size: 0.85rem;">⏱️ Days Elapsed</span>
-                    <div style="margin-top: 0.25rem; font-weight: 500;">${Math.ceil((new Date() - new Date(report.created_at)) / (1000 * 60 * 60 * 24))} days</div>
-                </div>
-            </div>
-            <div style="margin-top: 1rem;">
-                <label style="color: var(--text-tertiary); font-size: 0.85rem;">Assign to Collector</label>
-                <div style="display: grid; grid-template-columns: 1fr auto; gap: 0.5rem; margin-top: 0.5rem;">
-                    <select id="modalCollectorSelect">
-                        <option value="">Select Collector</option>
-                        ${collectors.map(c => `<option value="${c.id}" ${c.id === report.assigned_to ? 'selected' : ''}>${c.name}</option>`).join('')}
-                    </select>
-                    <button class="btn btn-primary" onclick="assignCollectorFromModal('${report.id}')">Assign</button>
-                </div>
-            </div>
+    currentModalReportId = reportId
+    
+    document.getElementById("modalTitle").textContent = report.title
+    document.getElementById("modalDescription").innerHTML = `
+        <p style="color:var(--text-secondary); margin-top:0.5rem;">${report.description}</p>
+        <div style="margin-top:1rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <span class="badge badge-status ${report.status}">${formatStatus(report.status)}</span>
+            <span class="badge badge-priority ${report.priority}">${report.priority} Priority</span>
         </div>
     `
     
-    // History/Timeline
-    if (report.history && report.history.length > 0) {
-        document.getElementById("modalHistory").innerHTML = `
-            <h4 style="margin: 0 0 1rem 0; font-size: 0.95rem;">📋 Activity Timeline</h4>
-            <div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.9rem;">
-                ${report.history.map(h => `
-                    <div style="padding: 0.5rem; background: var(--light-bg); border-radius: 6px; border-left: 3px solid var(--primary-color);">
-                        <div style="font-weight: 500;">${h.action}</div>
-                        <div style="color: var(--text-tertiary); font-size: 0.85rem;">by ${h.performed_by} • ${new Date(h.timestamp).toLocaleDateString()}</div>
-                    </div>
-                `).join('')}
+    document.getElementById("modalImage").innerHTML = report.image_url 
+        ? `<img src="${report.image_url}" style="width:100%; max-height:300px; object-fit:cover; border-radius:8px; border:1px solid var(--light-bg);">`
+        : `<div style="padding:2rem; text-align:center; background:var(--light-bg); border-radius:8px; color:var(--text-tertiary);">No issue photo provided</div>`
+        
+    // Base details
+    let detailsHtml = `
+        <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+            <tr style="border-bottom:1px solid var(--light-bg);"><td style="padding:0.75rem 0; color:var(--text-tertiary); width:100px;">Report ID</td><td style="padding:0.75rem 0; font-family:monospace;">${report.id}</td></tr>
+            <tr style="border-bottom:1px solid var(--light-bg);"><td style="padding:0.75rem 0; color:var(--text-tertiary);">Location</td><td style="padding:0.75rem 0; font-weight:600;">${report.location}</td></tr>
+            <tr style="border-bottom:1px solid var(--light-bg);"><td style="padding:0.75rem 0; color:var(--text-tertiary);">Reported By</td><td style="padding:0.75rem 0;">${report.users?.name || 'Unknown'} (${report.users?.email || 'N/A'})</td></tr>
+            <tr style="border-bottom:1px solid var(--light-bg);"><td style="padding:0.75rem 0; color:var(--text-tertiary);">Created On</td><td style="padding:0.75rem 0;">${new Date(report.created_at).toLocaleString()}</td></tr>
+    `
+    
+    // Add assignment info or assignment dropdown
+    if (report.status === "pending") {
+        // Build collector dropdown
+        let selectHtml = `<select id="modalCollectorSelect" class="form-control" style="max-width:250px; font-size:0.85rem; padding:0.4rem;">
+            <option value="">-- Select a collector --</option>`
+        allCollectors.forEach(c => {
+            selectHtml += `<option value="${c.id}">${c.name} (${c.email})</option>`
+        })
+        selectHtml += `</select>`
+        
+        detailsHtml += `<tr><td style="padding:0.75rem 0; color:var(--text-tertiary);">Assign To</td><td style="padding:0.75rem 0;">${selectHtml}</td></tr>`
+        
+        // Setup assign button
+        const btn = document.getElementById("modalActionBtn")
+        btn.textContent = "Assign Collector"
+        btn.style.display = "inline-block"
+        btn.onclick = () => assignCollectorFromModal()
+        
+    } else {
+        // Show assigned collector text
+        const col = allCollectors.find(c => c.id === report.assigned_to)
+        detailsHtml += `<tr><td style="padding:0.75rem 0; color:var(--text-tertiary);">Assigned To</td><td style="padding:0.75rem 0; font-weight:600; color:var(--primary-color);">${col ? col.name : 'Unknown'}</td></tr>`
+        
+        // Hide assign button
+        document.getElementById("modalActionBtn").style.display = "none"
+    }
+
+    // Add completion info if completed
+    if (report.status === "completed" && report.completion_image_url) {
+        detailsHtml += `<tr><td style="padding:0.75rem 0; color:var(--text-tertiary);">Completed On</td><td style="padding:0.75rem 0;">${new Date(report.completed_at || new Date()).toLocaleString()}</td></tr>`
+        detailsHtml += `</table>`
+        
+        detailsHtml += `
+            <div style="margin-top:1.5rem;">
+                <span class="badge badge-priority low mb-2" style="display:inline-block;">✓ Cleanup Verified</span>
+                <img src="${report.completion_image_url}" style="width:100%; max-height:200px; object-fit:cover; border-radius:8px; border:2px solid var(--success-color);">
             </div>
         `
     } else {
-        document.getElementById("modalHistory").innerHTML = ""
+        detailsHtml += `</table>`
     }
     
+    document.getElementById("modalDetails").innerHTML = detailsHtml
+    document.getElementById("modalHistory").innerHTML = "" // Removed dead history code
+
+    const modal = document.getElementById("reportModal")
     modal.style.display = "block"
+    document.body.style.overflow = "hidden"
 }
 
-// Close report modal
+// BUG FIX: Close modal on backdrop click OR explicit close button
 function closeReportModal(event) {
     if (event && event.target.id !== "reportModal") return
+    
     document.getElementById("reportModal").style.display = "none"
+    document.body.style.overflow = "auto"
+    currentModalReportId = null
 }
 
-// Assign collector from modal
-async function assignCollectorFromModal(reportId) {
-    const collectorId = document.getElementById("modalCollectorSelect").value
+async function assignCollectorFromModal() {
+    const sel = document.getElementById("modalCollectorSelect")
+    if (!sel) return
     
+    const collectorId = sel.value
     if (!collectorId) {
-        showToast("Please select a collector", "warning")
+        showToast("Please select a collector to assign", "warning")
         return
     }
     
-    const data = await apiRequest("/reports/assign", "POST", {
-        report_id: reportId,
-        collector_id: collectorId
-    })
-    
-    if (data.message) {
-        showToast("Collector assigned successfully!", "success")
-        closeReportModal()
-        await loadReports()
-    } else {
-        showToast(data.error || "Error assigning collector", "error")
-    }
-}
-
-// Tab navigation
-function selectTab(tabName) {
-    // Prevent default link behavior
-    event?.preventDefault?.()
-    
-    // Hide all sections except the selected one
-    document.querySelectorAll('.dashboard-section').forEach(section => {
-        section.style.display = section.id === tabName ? 'block' : 'none'
-    })
-    
-    // Update sidebar active state
-    document.querySelectorAll('.sidebar-link').forEach(link => {
-        link.classList.remove('active')
-        if (link.getAttribute('href') === '#' + tabName) {
-            link.classList.add('active')
-        }
-    })
-}
-
-// Load and display collector stats
-async function loadCollectorStats() {
-    const statsContainer = document.getElementById("collectorStats")
-    const data = await apiRequest("/dashboard/admin")
-    
-    // Calculate performance metrics
-    const completedReports = allReports.filter(r => r.status === 'completed').length
-    const totalReports = allReports.length
-    const avgCompletionTime = calculateAvgCompletionTime()
-    const highPriorityPending = allReports.filter(r => r.status !== 'completed' && r.priority === 'high').length
-    
-    // Find location with most reports
-    const locationCounts = {}
-    allReports.forEach(r => {
-        locationCounts[r.location] = (locationCounts[r.location] || 0) + 1
-    })
-    const topLocation = Object.entries(locationCounts).sort((a, b) => b[1] - a[1])[0]
-    
-    statsContainer.innerHTML = `
-        <div class="card stat-card">
-            <div class="card-body">
-                <div class="stat-metric">
-                    <div class="stat-value" style="color: var(--success-color);">${avgCompletionTime}</div>
-                    <div class="stat-label">Avg Completion Time</div>
-                </div>
-            </div>
-        </div>
-        <div class="card stat-card">
-            <div class="card-body">
-                <div class="stat-metric">
-                    <div class="stat-value" style="color: var(--danger-color);">${highPriorityPending}</div>
-                    <div class="stat-label">High Priority Pending</div>
-                </div>
-            </div>
-        </div>
-        <div class="card stat-card">
-            <div class="card-body">
-                <div class="stat-metric">
-                    <div class="stat-value">📍</div>
-                    <div class="stat-label">${topLocation ? topLocation[0] : 'N/A'}</div>
-                    <div class="stat-subtext">${topLocation ? topLocation[1] + ' reports' : ''}</div>
-                </div>
-            </div>
-        </div>
-    `
-}
-
-// Calculate average completion time
-function calculateAvgCompletionTime() {
-    const completed = allReports.filter(r => r.status === 'completed' && r.completed_at)
-    if (completed.length === 0) return "N/A"
-    
-    const totalTime = completed.reduce((sum, report) => {
-        const created = new Date(report.created_at)
-        const completedDate = new Date(report.completed_at)
-        return sum + Math.ceil((completedDate - created) / (1000 * 60 * 60 * 24))
-    }, 0)
-    
-    return Math.round(totalTime / completed.length) + " days"
-}
-
-// Load collectors table
-async function loadCollectors() {
-    const collectorTableContainer = document.getElementById("collectorTable")
-    if (!collectorTableContainer) return
-    
-    collectorTableContainer.innerHTML = ""
-    
-    collectors.forEach(collector => {
-        const active = allReports.filter(r => r.assigned_to === collector.id && r.status !== 'completed').length
-        const completed = allReports.filter(r => r.assigned_to === collector.id && r.status === 'completed').length
-        const total = allReports.filter(r => r.assigned_to === collector.id).length
-        const rate = total > 0 ? Math.round((completed / total) * 100) : 0
-        
-        const row = document.createElement("tr")
-        row.style.borderBottom = "1px solid var(--light-bg)"
-        row.innerHTML = `
-            <td style="padding: 1rem;">${collector.name}</td>
-            <td style="padding: 1rem;">${collector.email || 'N/A'}</td>
-            <td style="padding: 1rem; text-align: center;">${active}</td>
-            <td style="padding: 1rem; text-align: center;">${completed}</td>
-            <td style="padding: 1rem; text-align: center;">${total}</td>
-            <td style="padding: 1rem; text-align: center;">
-                <div style="background: linear-gradient(90deg, var(--success-color), #34d399); max-width: 60px; height: 24px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin: 0 auto; color: white; font-weight: 600; font-size: 0.75rem;">
-                    ${rate}%
-                </div>
-            </td>
-            <td style="padding: 1rem; text-align: center;">
-                <button class="btn btn-secondary" onclick="toggleCollectorStatus('${collector.id}')" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">Deactivate</button>
-            </td>
-        `
-        collectorTableContainer.appendChild(row)
-    })
-}
-
-// Deactivate collector (placeholder - would need backend support)
-async function toggleCollectorStatus(collectorId) {
-    const collector = collectors.find(c => c.id === collectorId)
-    showToast(`${collector.name} deactivation request sent (requires backend implementation)`, "info")
-}
-// Assign collector to report
-async function assignCollector(reportId) {
-    const select = document.getElementById(`collector-${reportId}`)
-    const collectorId = select.value
-
-    if (!collectorId) {
-        showToast("Please select a collector before assigning", "warning")
-        return
-    }
-
     showLoading()
-    
-    const data = await apiRequest("/reports/assign", "POST", {
-        report_id: reportId,
-        collector_id: collectorId
-    })
-
-    if (data.message) {
-        showToast("Collector assigned successfully!", "success")
-        await loadReports()
-    } else {
-        showToast(data.error || "Error assigning collector", "error")
+    try {
+        await apiRequest("/reports/assign", "POST", { 
+            report_id: currentModalReportId, 
+            collector_id: collectorId 
+        })
+        showToast("Collector assigned successfully", "success")
+        closeReportModal()
+        await loadAllData() // Refresh list entirely
+    } catch (err) {
+        showToast("Failed to assign collector", "error")
     }
-    
     hideLoading()
 }
-// Get theme-aware chart colors
-function getChartConfig() {
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark'
-    const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--bg-secondary').trim()
-    const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim()
-    const gridColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'
+
+// -------------------------------------------------------------
+// COLLECTORS MANAGEMENT (Tab 4)
+// -------------------------------------------------------------
+async function loadCollectorsTab() {
+    showLoading()
+    try {
+        // Make sure we have the latest list
+        const res = await apiRequest("/reports/collectors")
+        if (Array.isArray(res)) allCollectors = res
+        
+        // Count active vs suspended
+        const active = allCollectors.filter(c => !c.is_suspended).length
+        const suspended = allCollectors.filter(c => c.is_suspended).length
+        
+        document.getElementById("collectorStats").innerHTML = `
+            <div class="card">
+                <div class="card-body text-center">
+                    <h3 style="font-size: 2rem; color: var(--primary-color); margin: 0;">${allCollectors.length}</h3>
+                    <p style="color: var(--text-secondary); margin: 0;">Total Collectors</p>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-body text-center">
+                    <h3 style="font-size: 2rem; color: var(--success-color); margin: 0;">${active}</h3>
+                    <p style="color: var(--text-secondary); margin: 0;">Active</p>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-body text-center">
+                    <h3 style="font-size: 2rem; color: var(--warning-color); margin: 0;">${suspended}</h3>
+                    <p style="color: var(--text-secondary); margin: 0;">Suspended</p>
+                </div>
+            </div>
+        `
+        
+        const tbody = document.getElementById("collectorTable")
+        if (!tbody) { hideLoading(); return }
+        
+        tbody.innerHTML = ""
+        
+        // Calculate fake workload details strictly for display context if the backend doesn't provide them
+        // In reality, a proper admin endpoint would join users + reports to get accurate 'completed_jobs' etc.
+        allCollectors.forEach(col => {
+            const tr = document.createElement("tr")
+            tr.style.borderBottom = "1px solid var(--light-bg)"
+            
+            const suspendedBadge = col.is_suspended 
+                ? `<span class="badge badge-priority high">Suspended</span>`
+                : `<span class="badge badge-status completed">Active</span>`
+                
+            const actionBtn = col.is_suspended
+                ? `<button class="btn btn-secondary" style="padding:0.3rem 0.6rem; font-size:0.8rem;" onclick="toggleCollectorStatus('${col.id}', false)">Reactivate</button>`
+                : `<button class="btn btn-primary" style="padding:0.3rem 0.6rem; font-size:0.8rem; background:var(--warning-color);" onclick="toggleCollectorStatus('${col.id}', true)">Suspend</button>`
+            
+            // Just verify-admin helper UI (for Dev)
+            const verifyBtn = !col.is_verified && col.email 
+                ? `<button class="btn btn-primary" style="padding:0.3rem 0.6rem; font-size:0.8rem; margin-left:0.5rem;" onclick="forceVerifyEmail('${col.id}')">Verify Email</button>`
+                : ""
+
+            tr.innerHTML = `
+                <td style="padding: 1rem;"><div style="font-weight:600;">${col.name}</div><div style="font-size:0.8rem; color:var(--text-tertiary);">ID: ${col.id.substring(0,8)}</div></td>
+                <td style="padding: 1rem; color:var(--text-secondary);">${col.email}</td>
+                <td style="padding: 1rem; text-align:center;">${suspendedBadge}</td>
+                <td style="padding: 1rem; text-align:center;">—</td>
+                <td style="padding: 1rem; text-align:center;">—</td>
+                <td style="padding: 1rem; text-align:center;">—</td>
+                <td style="padding: 1rem; text-align:center;">${actionBtn} ${verifyBtn}</td>
+            `
+            tbody.appendChild(tr)
+        })
+        
+    } catch (err) {
+        console.error("Collectors tab error:", err)
+        showToast("Failed to load collector table data", "error")
+    }
+    hideLoading()
+}
+
+async function forceVerifyEmail(userId) {
+    if (!confirm("Force verification for this account?")) return
+    showLoading()
+    try {
+        await apiRequest("/auth/verify-email-admin", "POST", { userId })
+        showToast("Email verified successfully", "success")
+        loadCollectorsTab() // Refresh
+    } catch (err) {
+        showToast("Failed to verify email", "error")
+    }
+    hideLoading()
+}
+
+async function toggleCollectorStatus(collectorId, suspend) {
+    const action = suspend ? "suspend" : "unsuspend"
+    const confirmMsg = suspend 
+        ? "Suspend this collector? They will not be able to log in or receive assignments."
+        : "Reactivate this collector?"
+        
+    if (!confirm(confirmMsg)) return
     
-    return {
-        isDark,
-        bgColor,
-        textColor,
-        gridColor,
-        primaryColor: '#1b5e20',
-        accentColor: '#ffd54f',
-        successColor: '#10b981',
-        warningColor: '#f59e0b',
-        dangerColor: '#c62828',
-        colorPalette: [
-            '#1b5e20', '#2d8659', '#41b06f', '#52d686', '#68e098',
-            '#ffd54f', '#ffc107', '#ffb300', '#ff9500', '#ff8500'
-        ]
+    showLoading()
+    try {
+        await apiRequest(`/auth/${action}-user`, "POST", { userId: collectorId })
+        showToast(suspend ? "Collector suspended" : "Collector reactivated", "success")
+        loadCollectorsTab() // refresh table
+    } catch (err) {
+        showToast(`Failed to ${action} collector`, "error")
     }
+    hideLoading()
 }
-
-// Load location chart with enhanced styling
-let locationChartInstance = null
-
-async function loadLocationChart() {
-    const data = await apiRequest("/dashboard/locations")
-    const config = getChartConfig()
-
-    const labels = Object.keys(data)
-    const values = Object.values(data)
-
-    const ctx = document.getElementById("locationChart")
-    if (!ctx) return
-
-    if (locationChartInstance) {
-        locationChartInstance.destroy()
-    }
-
-    locationChartInstance = new Chart(ctx, {
-        type: "bar",
-        data: {
-            labels: labels,
-            datasets: [{
-                label: "Reports Per Location",
-                data: values,
-                backgroundColor: [
-                    '#1b5e20', '#2d8659', '#41b06f', '#52d686',
-                    '#ffd54f', '#ffb66f', '#ff8a4f'
-                ].slice(0, labels.length),
-                borderColor: config.textColor,
-                borderWidth: 2,
-                borderRadius: 8,
-                borderSkipped: false
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: {
-                    display: true,
-                    labels: {
-                        color: config.textColor,
-                        font: { size: 12, family: 'system-ui, -apple-system, sans-serif' },
-                        padding: 15,
-                        usePointStyle: true
-                    }
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        color: config.textColor,
-                        font: { size: 11 }
-                    },
-                    grid: {
-                        color: config.gridColor,
-                        drawBorder: false
-                    }
-                },
-                x: {
-                    ticks: {
-                        color: config.textColor,
-                        font: { size: 11 }
-                    },
-                    grid: {
-                        display: false,
-                        drawBorder: false
-                    }
-                }
-            }
-        }
-    })
-}
-
-// Load collector chart with enhanced styling
-let collectorChartInstance = null
-
-async function loadCollectorChart() {
-    const data = await apiRequest("/reports/workload")
-    const config = getChartConfig()
-
-    const labels = data.map(item => item.collector)
-    const values = data.map(item => item.count)
-
-    const ctx = document.getElementById("collectorChart")
-    if (!ctx) return
-
-    if (collectorChartInstance) {
-        collectorChartInstance.destroy()
-    }
-
-    collectorChartInstance = new Chart(ctx, {
-        type: "doughnut",
-        data: {
-            labels: labels,
-            datasets: [{
-                label: "Collector Workload",
-                data: values,
-                backgroundColor: [
-                    '#1b5e20', '#2d8659', '#41b06f', '#52d686',
-                    '#68e098', '#ffd54f', '#ffb66f', '#ff8a4f'
-                ].slice(0, labels.length),
-                borderColor: config.bgColor,
-                borderWidth: 2,
-                hoverOffset: 10
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: {
-                        color: config.textColor,
-                        font: { size: 12, family: 'system-ui, -apple-system, sans-serif' },
-                        padding: 15,
-                        usePointStyle: true
-                    }
-                },
-                tooltip: {
-                    titleFont: { size: 13 },
-                    bodyFont: { size: 12 },
-                    padding: 12,
-                    backgroundColor: config.isDark ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.7)',
-                    titleColor: '#fff',
-                    bodyColor: '#fff',
-                    borderColor: config.primaryColor,
-                    borderWidth: 1
-                }
-            }
-        }
-    })
-}
-
-// Load status chart
-let statusChartInstance = null
-
-async function loadStatusChart() {
-    const data = await apiRequest("/dashboard/admin")
-    const config = getChartConfig()
-
-    const statuses = ['pending', 'inProgress', 'completed']
-    const statusLabels = { pending: 'Pending', inProgress: 'In Progress', completed: 'Completed' }
-    const statusColors = { pending: '#f59e0b', inProgress: '#3b82f6', completed: '#10b981' }
-    
-    const values = statuses.map(status => {
-        const key = status.charAt(0).toUpperCase() + status.slice(1)
-        return data[status === 'inProgress' ? 'inProgress' : (status === 'pending' ? 'pending' : 'completed')] || 0
-    })
-
-    const ctx = document.getElementById("statusChart")
-    if (!ctx) return
-
-    if (statusChartInstance) {
-        statusChartInstance.destroy()
-    }
-
-    statusChartInstance = new Chart(ctx, {
-        type: "polarArea",
-        data: {
-            labels: statuses.map(s => statusLabels[s]),
-            datasets: [{
-                data: values,
-                backgroundColor: [
-                    statusColors.pending,
-                    statusColors.inProgress,
-                    statusColors.completed
-                ],
-                borderColor: config.bgColor,
-                borderWidth: 2
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: {
-                        color: config.textColor,
-                        font: { size: 12, family: 'system-ui, -apple-system, sans-serif' },
-                        padding: 15,
-                        usePointStyle: true
-                    }
-                }
-            },
-            scales: {
-                r: {
-                    ticks: {
-                        color: config.textColor,
-                        font: { size: 11 }
-                    },
-                    grid: {
-                        color: config.gridColor
-                    }
-                }
-            }
-        }
-    })
-}
-
-// Load priority chart
-let priorityChartInstance = null
-
-async function loadPriorityChart() {
-    const data = await apiRequest("/dashboard/admin")
-    const config = getChartConfig()
-
-    // Calculate priority breakdown from available data
-    const priorityData = {
-        'High': data.highPriority || 0,
-        'Normal': Math.max(0, (data.totalReports || 0) - (data.highPriority || 0) - (data.lowPriority || 0)),
-        'Low': data.lowPriority || 0
-    }
-
-    const labels = Object.keys(priorityData)
-    const values = Object.values(priorityData)
-
-    const ctx = document.getElementById("priorityChart")
-    if (!ctx) return
-
-    if (priorityChartInstance) {
-        priorityChartInstance.destroy()
-    }
-
-    priorityChartInstance = new Chart(ctx, {
-        type: "radar",
-        data: {
-            labels: labels,
-            datasets: [{
-                label: "Priority Distribution",
-                data: values,
-                borderColor: config.primaryColor,
-                backgroundColor: 'rgba(27, 94, 32, 0.15)',
-                borderWidth: 2,
-                fill: true,
-                pointBackgroundColor: config.primaryColor,
-                pointBorderColor: config.bgColor,
-                pointBorderWidth: 2,
-                pointRadius: 5,
-                pointHoverRadius: 7
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: {
-                        color: config.textColor,
-                        font: { size: 12, family: 'system-ui, -apple-system, sans-serif' },
-                        padding: 15,
-                        usePointStyle: true
-                    }
-                }
-            },
-            scales: {
-                r: {
-                    beginAtZero: true,
-                    ticks: {
-                        color: config.textColor,
-                        font: { size: 11 }
-                    },
-                    grid: {
-                        color: config.gridColor
-                    }
-                }
-            }
-        }
-    })
-}
-
-loadStats()
-loadLocationChart()
-loadReports()
-loadCollectorChart()
-loadStatusChart()
-loadPriorityChart()
-
-// Refresh charts when theme changes
-const observer = new MutationObserver((mutations) => {
-    mutations.forEach((mutation) => {
-        if (mutation.attributeName === 'data-theme') {
-            loadLocationChart()
-            loadCollectorChart()
-            loadStatusChart()
-            loadPriorityChart()
-        }
-    })
-})
-
-observer.observe(document.documentElement, {
-    attributes: true,
-    attributeFilter: ['data-theme']
-})
-
-setInterval(() => {
-    loadStats()
-    loadLocationChart()
-    loadReports()
-    loadCollectorChart()
-    loadStatusChart()
-    loadPriorityChart()
-}, 10000) // refresh every 10 seconds
-
-// Initialize dashboard on page load
-document.addEventListener('DOMContentLoaded', () => {
-    // Show only stats section initially
-    selectTab('stats')
-    
-    // Close modal when clicking outside
-    document.getElementById('reportModal').addEventListener('click', (e) => {
-        if (e.target.id === 'reportModal') {
-            closeReportModal()
-        }
-    })
-})

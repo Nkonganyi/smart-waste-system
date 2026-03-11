@@ -21,6 +21,16 @@ exports.getAdminStats = async (req, res) => {
             .select("*", { count: "exact", head: true })
             .eq("status", "completed")
 
+        const { count: highPriority } = await supabase
+            .from("reports")
+            .select("*", { count: "exact", head: true })
+            .eq("priority", "high")
+
+        const { count: lowPriority } = await supabase
+            .from("reports")
+            .select("*", { count: "exact", head: true })
+            .eq("priority", "low")
+
         const { count: totalUsers } = await supabase
             .from("users")
             .select("*", { count: "exact", head: true })
@@ -35,6 +45,8 @@ exports.getAdminStats = async (req, res) => {
             pending,
             inProgress,
             completed,
+            highPriority,
+            lowPriority,
             totalUsers,
             collectors
         })
@@ -69,9 +81,8 @@ exports.getCollectorWorkload = async (req, res) => {
         .from("assignments")
         .select(`
             collector_id,
-            users(name)
+            users!assignments_collector_id_fkey(name)
         `)
-        .join("users", "users.id", "=", "assignments.collector_id")
 
     if (error) {
         return res.status(400).json({ error: error.message })
@@ -80,7 +91,7 @@ exports.getCollectorWorkload = async (req, res) => {
     const workload = {}
 
     data.forEach(item => {
-        const name = item.users.name
+        const name = item.users?.name || "Unknown collector"
 
         workload[name] = (workload[name] || 0) + 1
     })

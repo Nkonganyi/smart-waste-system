@@ -1,3 +1,5 @@
+// auth.js - Handles user authentication (login/logout/register) on the frontend
+
 // loading helpers
 function showLoading() {
     const spinner = document.getElementById("loading")
@@ -12,11 +14,11 @@ function hideLoading() {
     if (authLoading) authLoading.style.display = "none"
 }
 
-//User Registration Logic
+// User Registration Logic
 async function register() {
     const btn = document.getElementById("registerBtn")
     btn.disabled = true
-    
+
     showLoading()
     const name = document.getElementById("name").value
     const email = document.getElementById("email").value
@@ -37,44 +39,34 @@ async function register() {
         return
     }
 
-    const data = await apiRequest("/auth/register", "POST", {
-        name,
-        email,
-        password,
-        role
-    })
-
-    hideLoading()
-
-    if (data.message) {
-        // Show email verification message
-        showToast(
-            "Registration successful! Check your email to verify your account.",
-            "success"
-        )
-        
-        // Show verification message in modal or alert
-        setTimeout(() => {
-            alert(
-                `Welcome ${name}!\n\n` +
-                `A verification link has been sent to:\n${email}\n\n` +
-                `Please click the link in your email to activate your account.\n\n` +
-                `The link will expire in 24 hours.`
-            )
-            
-            // Redirect to login page
-            window.location.href = "index.html"
-        }, 1500)
-    } else {
-        showToast(data.error || "Registration failed", "error")
+    try {
+        const data = await apiRequest("/auth/register", "POST", { name, email, password, role })
+    
+        hideLoading()
+    
+        if (data.message && !data.error) {
+            showToast("Registration successful! Check your email to verify your account.", "success")
+    
+            setTimeout(() => {
+                window.location.href = "index.html"
+            }, 1500)
+        } else {
+            showToast(data.error || data.message || "Registration failed", "error")
+            btn.disabled = false
+        }
+    } catch (err) {
+        console.error("Registration request failed:", err)
+        showToast(err.message || "Request failed. Check connection.", "error")
+        hideLoading()
         btn.disabled = false
     }
 }
-// auth.js - Handles user authentication (login/logout) on the frontend
+
+// Login Logic
 async function login() {
-    const btn = document.getElementById("loginBtn") || event.target
+    const btn = document.getElementById("loginBtn")
     btn.disabled = true
-    
+
     showLoading()
     const email = document.getElementById("email").value
     const password = document.getElementById("password").value
@@ -86,49 +78,142 @@ async function login() {
         return
     }
 
-    const data = await apiRequest("/auth/login", "POST", {
-        email,
-        password
-    })
+    try {
+        const data = await apiRequest("/auth/login", "POST", { email, password })
+    
+        hideLoading()
+    
+        if (data.token) {
+            const role = data.user?.role
+            localStorage.setItem("token", data.token)
+            localStorage.setItem("role", role || "")
+            showToast("Login successful! Redirecting...", "success")
+    
+            setTimeout(() => {
+                if (role === "admin") window.location.href = "admin.html"
+                else if (role === "collector") window.location.href = "collector.html"
+                else window.location.href = "citizen.html"
+            }, 1500)
+        } else if (data.error === "Account not verified") {
+            showToast(
+                "Please verify your email address before logging in. Check your inbox for the verification link.",
+                "warning"
+            )
+            alert(
+                "Email Not Verified\n\n" +
+                "Your account has been created, but you need to verify your email first.\n\n" +
+                "Please check your email for a verification link and click it to activate your account.\n\n" +
+                "The link will expire in 24 hours."
+            )
+            btn.disabled = false
+        } else if (data.error === "Account suspended") {
+            showToast("Your account has been suspended. Please contact support.", "error")
+            btn.disabled = false
+        } else {
+            showToast(data.error || data.message || "Login failed", "error")
+            btn.disabled = false
+        }
+    } catch (err) {
+        console.error("Login request failed:", err)
+        showToast(err.message || "Login request failed. Check connection.", "error")
+        hideLoading()
+        btn.disabled = false
+    }
+}
 
-    hideLoading()
+// Resend verification email from login screen
+async function resendVerification() {
+    const email = document.getElementById("email").value.trim()
 
-    if (data.token) {
-        localStorage.setItem("token", data.token)
-        localStorage.setItem("role", data.role)
-        showToast("Login successful! Redirecting...", "success")
-        
-        setTimeout(() => {
-            if (data.role === "admin") {
-                window.location.href = "admin.html"
-            } else if (data.role === "collector") {
-                window.location.href = "collector.html"
-            } else {
-                window.location.href = "citizen.html"
-            }
-        }, 1500)
-    } else if (data.error === "Account not verified") {
-        // User email not verified
-        showToast(
-            "Please verify your email address before logging in. Check your inbox for the verification link.",
-            "warning"
-        )
-        alert(
-            "Email Not Verified\n\n" +
-            "Your account has been created, but you need to verify your email first.\n\n" +
-            "Please check your email for a verification link and click it to activate your account.\n\n" +
-            "The link will expire in 24 hours."
-        )
-        btn.disabled = false
-    } else if (data.error === "Account suspended") {
-        // Account suspended
-        showToast(
-            "Your account has been suspended. Please contact support.",
-            "error"
-        )
-        btn.disabled = false
-    } else {
-        showToast(data.error || "Login failed", "error")
-        btn.disabled = false
+    if (!email) {
+        showToast("Enter your email first, then click resend", "warning")
+        return
+    }
+
+    showLoading()
+    try {
+        const data = await apiRequest("/auth/resend-verification", "POST", { email })
+
+        if (data.message) {
+            showToast(data.message, "success")
+            return
+        }
+
+        showToast(data.error || "Unable to resend verification email", "error")
+    } catch (err) {
+        console.error("Resend verification error:", err)
+        showToast("Request failed. Check backend server and network.", "error")
+    } finally {
+        hideLoading()
+    }
+}
+
+// Forgot password — sends reset email
+async function forgotPassword() {
+    const email = document.getElementById("email").value.trim()
+
+    if (!email) {
+        showToast("Enter your email address first", "warning")
+        return
+    }
+
+    showLoading()
+    try {
+        const data = await apiRequest("/auth/forgot-password", "POST", { email })
+
+        showToast(data.message || "If that email exists, a reset link was sent.", "success")
+    } catch (err) {
+        console.error("Forgot password error:", err)
+        showToast("Request failed. Check connection and try again.", "error")
+    } finally {
+        hideLoading()
+    }
+}
+
+// Reset password — submit new password with token from URL
+async function resetPassword() {
+    const btn = document.getElementById("resetBtn")
+    if (btn) btn.disabled = true
+
+    const params = new URLSearchParams(window.location.search)
+    const token = params.get("token")
+    const password = document.getElementById("password").value
+    const confirmPassword = document.getElementById("confirmPassword")?.value
+
+    if (!token) {
+        showToast("Invalid or missing reset token. Please request a new link.", "error")
+        if (btn) btn.disabled = false
+        return
+    }
+
+    if (!password) {
+        showToast("Please enter a new password", "warning")
+        if (btn) btn.disabled = false
+        return
+    }
+
+    if (confirmPassword !== undefined && password !== confirmPassword) {
+        showToast("Passwords do not match", "warning")
+        if (btn) btn.disabled = false
+        return
+    }
+
+    showLoading()
+    try {
+        const data = await apiRequest("/auth/reset-password", "POST", { token, password })
+
+        if (data.message && !data.error) {
+            showToast("Password reset successfully! Redirecting to login...", "success")
+            setTimeout(() => { window.location.href = "index.html" }, 2000)
+        } else {
+            showToast(data.message || data.error || "Reset failed", "error")
+            if (btn) btn.disabled = false
+        }
+    } catch (err) {
+        console.error("Reset password error:", err)
+        showToast("Request failed. Check connection and try again.", "error")
+        if (btn) btn.disabled = false
+    } finally {
+        hideLoading()
     }
 }

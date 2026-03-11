@@ -1,5 +1,34 @@
 // citizen.js - Handles citizen-specific frontend logic
 
+// Require citizen role on load
+window.addEventListener("DOMContentLoaded", () => {
+    if (!requireAuth("citizen")) return
+    loadTheme()
+    loadNotifications()
+    loadMyReports()
+})
+
+function loadTheme() {
+    const savedTheme = localStorage.getItem("theme") || "dark"
+    document.documentElement.setAttribute("data-theme", savedTheme)
+    const icon = document.getElementById("theme-icon")
+    if (icon) icon.textContent = savedTheme === "dark" ? "☀️" : "🌙"
+}
+
+function toggleTheme() {
+    const html = document.documentElement
+    const newTheme = html.getAttribute("data-theme") === "dark" ? "light" : "dark"
+    html.setAttribute("data-theme", newTheme)
+    localStorage.setItem("theme", newTheme)
+    const icon = document.getElementById("theme-icon")
+    if (icon) icon.textContent = newTheme === "dark" ? "☀️" : "🌙"
+}
+
+function toggleSidebar() {
+    document.querySelector(".sidebar")?.classList.toggle("active")
+    document.getElementById("sidebarToggle")?.classList.toggle("active")
+}
+
 // loading helpers
 function showLoading() {
     const spinner = document.getElementById("loading")
@@ -24,7 +53,7 @@ async function submitReport() {
     const image = document.getElementById("image").files[0]
     const priority = document.getElementById("priority").value
 
-    if (!title || !description || !location) {
+    if (!title || !description || !location || !priority) {
         showToast("Please fill in all required fields", "warning")
         hideLoading()
         return
@@ -35,17 +64,12 @@ async function submitReport() {
     formData.append("description", description)
     formData.append("location", location)
     formData.append("priority", priority)
-
-    if (image) {
-        formData.append("image", image)
-    }
+    if (image) formData.append("image", image)
 
     try {
-        const response = await fetch("http://localhost:5000/api/reports", {
+        const response = await fetch(`${API_BASE_URL}/reports`, {
             method: "POST",
-            headers: {
-                Authorization: `Bearer ${localStorage.getItem("token")}`
-            },
+            headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
             body: formData
         })
 
@@ -66,59 +90,108 @@ async function submitReport() {
         console.error(err)
         showToast("Error submitting report. Please try again.", "error")
     }
-    
+
     hideLoading()
 }
 
-// Load notifications and my reports on page load
+// Load notifications
 async function loadNotifications() {
-    const data = await apiRequest("/notifications")
+    try {
+        const data = await apiRequest("/notifications")
+        if (!Array.isArray(data)) return
 
-    const list = document.getElementById("notificationsList")
-    list.innerHTML = ""
+        const list = document.getElementById("notificationsList")
+        if (!list) return
+        list.innerHTML = ""
 
-    data.forEach(notification => {
-        const li = document.createElement("li")
-        li.className = "card mb-2 p-3"
-        li.textContent = notification.message
-        list.appendChild(li)
-    })
+        if (data.length === 0) {
+            list.innerHTML = `<li class="card mb-2 p-3" style="color: var(--text-secondary);">No notifications yet.</li>`
+            return
+        }
+
+        data.forEach(notification => {
+            const li = document.createElement("li")
+            li.className = `card mb-2 p-3 ${notification.is_read ? "opacity-60" : ""}`
+            li.style.opacity = notification.is_read ? "0.6" : "1"
+            li.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem;">
+                    <span>${notification.message}</span>
+                    ${!notification.is_read
+                        ? `<button class="btn btn-secondary" style="padding:0.25rem 0.6rem; font-size:0.8rem; white-space:nowrap;" onclick="markNotificationRead('${notification.id}', this)">Mark read</button>`
+                        : `<span style="font-size:0.75rem; color:var(--text-tertiary);">✓ Read</span>`
+                    }
+                </div>
+            `
+            list.appendChild(li)
+        })
+    } catch (err) {
+        console.error("loadNotifications error:", err)
+    }
+}
+
+// Mark a single notification as read
+async function markNotificationRead(id, btn) {
+    if (btn) btn.disabled = true
+    try {
+        await apiRequest(`/notifications/${id}/read`, "PATCH")
+        await loadNotifications()
+    } catch (err) {
+        console.error("markNotificationRead error:", err)
+        if (btn) btn.disabled = false
+    }
 }
 
 // Load my reports
 async function loadMyReports() {
     showLoading()
+    try {
+        const data = await apiRequest("/reports/my")
+        if (!Array.isArray(data)) { hideLoading(); return }
 
-    const data = await apiRequest("/reports/my")
+        const container = document.getElementById("reportsList")
+        if (!container) { hideLoading(); return }
+        container.innerHTML = ""
 
-    const container = document.getElementById("reportsList")
-    container.innerHTML = ""
+        if (data.length === 0) {
+            container.innerHTML = `<div class="card"><div class="card-body"><p style="color:var(--text-secondary);">You haven't submitted any reports yet.</p></div></div>`
+            hideLoading()
+            return
+        }
 
-    data.forEach(report => {
-        const card = document.createElement("div")
-        card.className = "card"
-
-        card.innerHTML = `
-            <div class="card-header">
-                <h3 class="card-header-title">${report.title}</h3>
-            </div>
-            <div class="card-body">
-                <p class="mb-3">${report.description}</p>
-                <div class="card-body-item">
-                    <span class="card-body-label">Location</span>
-                    <span class="card-body-value">${report.location}</span>
+        data.forEach(report => {
+            const card = document.createElement("div")
+            card.className = "card"
+            card.innerHTML = `
+                <div class="card-header">
+                    <h3 class="card-header-title">${report.title}</h3>
                 </div>
-                <div class="card-body-item">
-                    <span class="badge badge-status ${report.status}">${report.status}</span>
+                <div class="card-body">
+                    <p class="mb-3">${report.description}</p>
+                    <div class="card-body-item">
+                        <span class="card-body-label">Location</span>
+                        <span class="card-body-value">${report.location}</span>
+                    </div>
+                    <div class="card-body-item">
+                        <span class="badge badge-status ${report.status}">${report.status}</span>
+                        <span class="badge badge-priority ${report.priority}">${report.priority}</span>
+                    </div>
+                    ${report.image_url ? `<img src="${report.image_url}" class="card-img">` : ""}
                 </div>
-                ${report.image_url ? `<img src="${report.image_url}" class="card-img">` : ""}
-            </div>
-        `
-
-        container.appendChild(card)
-    })
+            `
+            container.appendChild(card)
+        })
+    } catch (err) {
+        console.error("loadMyReports error:", err)
+    }
     hideLoading()
 }
 
-loadNotifications()
-loadMyReports()
+// Sidebar link close on mobile
+document.querySelectorAll(".sidebar-link").forEach(link => {
+    link.addEventListener("click", () => {
+        if (window.innerWidth <= 768) {
+            document.querySelector(".sidebar")?.classList.remove("active")
+            document.getElementById("sidebarToggle")?.classList.remove("active")
+        }
+    })
+})
