@@ -1,6 +1,22 @@
 const supabase = require("../config/supabase")
 const { geocode, getLocationSuggestions } = require("../utils/geocodingService")
 
+// Helper: Calculate distance between two points in meters (Haversine formula)
+function calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371e3; // Earth's radius in meters
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c; // Distance in meters
+}
+
 // Create a new report (authenticated users)
 exports.createReport = async (req, res) => {
     try {
@@ -40,21 +56,63 @@ exports.createReport = async (req, res) => {
             imageUrl = publicUrl.publicUrl
         }
 
-        // Geocode location (Strictly required)
+        // Geocode location (Graceful failure)
         let coords = null
         try {
             coords = await geocode(location)
-            if (!coords) {
-                return res.status(400).json({ 
-                    error: "Please provide a valid location or landmark." 
-                })
+            if (coords) {
+                console.log(`Geocoded "${location}" to:`, coords)
+            } else {
+                console.warn(`Could not geocode "${location}". Storing with NULL coordinates.`)
             }
-            console.log(`Geocoded "${location}" to:`, coords)
         } catch (geoError) {
             console.error(`Geocoding failed for "${location}":`, geoError.message)
-            return res.status(400).json({ 
-                error: "Please provide a valid location or landmark." 
-            })
+            // Continue without coordinates
+        }
+
+        // Duplicate Detection Logic
+        let parentReportId = null
+        
+        // 1. Proximity Check (if coordinates exist)
+        if (coords) {
+            const { data: existingReports } = await supabase
+                .from("reports")
+                .select("id, latitude, longitude")
+                .neq("status", "completed")
+                .not("latitude", "is", null)
+                .not("longitude", "is", null)
+
+            if (existingReports) {
+                for (const report of existingReports) {
+                    const distance = calculateDistance(
+                        coords.latitude, coords.longitude,
+                        report.latitude, report.longitude
+                    )
+                    
+                    if (distance <= 50) { // 50 meters threshold
+                        parentReportId = report.id
+                        console.log(`Duplicate detected via proximity! Linking to report ${report.id}`)
+                        break
+                    }
+                }
+            }
+        }
+
+        // 2. Text Search Fallback (if no proximity match found)
+        if (!parentReportId) {
+            const { data: textMatch } = await supabase
+                .from("reports")
+                .select("id")
+                .neq("status", "completed")
+                .ilike("location", location) // Case-insensitive exact match
+                .is("parent_report_id", null) // Link to the "main" report
+                .limit(1)
+                .single()
+
+            if (textMatch) {
+                parentReportId = textMatch.id
+                console.log(`Duplicate detected via location text! Linking to report ${textMatch.id}`)
+            }
         }
 
         // Insert report into database
@@ -69,7 +127,8 @@ exports.createReport = async (req, res) => {
                     priority: priority || "normal",
                     image_url: imageUrl,
                     latitude: coords ? coords.latitude : null,
-                    longitude: coords ? coords.longitude : null
+                    longitude: coords ? coords.longitude : null,
+                    parent_report_id: parentReportId
                 }
             ])
             .select()
@@ -152,16 +211,132 @@ exports.getAllReports = async (req, res) => {
             }, {})
         }
 
-        // Enrich reports with user and assignment data
+        // Fetch duplicate counts for main reports
+        const { data: duplicateCounts } = await supabase
+            .from("reports")
+            .select("parent_report_id")
+            .not("parent_report_id", "is", null)
+
+        const countMap = {}
+        if (duplicateCounts) {
+            duplicateCounts.forEach(d => {
+                countMap[d.parent_report_id] = (countMap[d.parent_report_id] || 0) + 1
+            })
+        }
+
+        // Enrich reports with user, assignment, and duplicate data
         const enriched = reports.map(report => ({
             ...report,
             users: userMap[report.user_id] || { name: "Unknown", email: "N/A" },
-            assigned_to: assignmentMap[report.id] || null
+            assigned_to: assignmentMap[report.id] || null,
+            duplicate_count: countMap[report.id] || 0
         }))
 
         res.json(enriched)
     } catch (err) {
         console.error("getAllReports exception:", err)
+        res.status(500).json({ error: "Server error" })
+    }
+}
+
+// Approve report (admin only)
+exports.approveReport = async (req, res) => {
+    try {
+        const { report_id } = req.body
+
+        if (!report_id) {
+            return res.status(400).json({ error: "report_id is required" })
+        }
+
+        const { data: report, error: reportError } = await supabase
+            .from("reports")
+            .select("id, status, user_id, title")
+            .eq("id", report_id)
+            .single()
+
+        if (reportError || !report) {
+            return res.status(404).json({ error: "Report not found" })
+        }
+
+        if (report.status !== "pending") {
+            return res.status(400).json({ error: "Only pending reports can be approved" })
+        }
+
+        const { error: updateError } = await supabase
+            .from("reports")
+            .update({ status: "approved" })
+            .eq("id", report_id)
+
+        if (updateError) {
+            return res.status(400).json({ error: updateError.message })
+        }
+
+        if (report.user_id) {
+            await supabase.from("notifications").insert([
+                {
+                    user_id: report.user_id,
+                    message: `Your report "${report.title}" has been approved.`,
+                    is_read: false
+                }
+            ])
+        }
+
+        res.json({ message: "Report approved successfully" })
+    } catch (err) {
+        console.error("approveReport exception:", err)
+        res.status(500).json({ error: "Server error" })
+    }
+}
+
+// Reject report (admin only)
+exports.rejectReport = async (req, res) => {
+    try {
+        const { report_id, reason } = req.body
+
+        if (!report_id) {
+            return res.status(400).json({ error: "report_id is required" })
+        }
+
+        const { data: report, error: reportError } = await supabase
+            .from("reports")
+            .select("id, status, user_id, title")
+            .eq("id", report_id)
+            .single()
+
+        if (reportError || !report) {
+            return res.status(404).json({ error: "Report not found" })
+        }
+
+        if (!["pending", "approved"].includes(report.status)) {
+            return res.status(400).json({ error: `Cannot reject a report with status "${report.status}"` })
+        }
+
+        const { error: updateError } = await supabase
+            .from("reports")
+            .update({ status: "rejected" })
+            .eq("id", report_id)
+
+        if (updateError) {
+            return res.status(400).json({ error: updateError.message })
+        }
+
+        if (report.user_id) {
+            const reasonText = typeof reason === "string" && reason.trim().length > 0
+                ? ` Reason: ${reason.trim()}`
+                : ""
+
+            await supabase.from("notifications").insert([
+                {
+                    user_id: report.user_id,
+                    message: `Your report "${report.title}" was rejected.${reasonText}`,
+                    is_read: false
+                }
+            ])
+        }
+
+        res.json({ message: "Report rejected successfully" })
+    } catch (err) {
+        console.error("rejectReport exception:", err)
         res.status(500).json({ error: "Server error" })
     }
 }
@@ -173,6 +348,19 @@ exports.assignCollector = async (req, res) => {
 
         if (!report_id || !collector_id) {
             return res.status(400).json({ error: "report_id and collector_id are required" })
+        }
+        const { data: report, error: reportError } = await supabase
+            .from("reports")
+            .select("status")
+            .eq("id", report_id)
+            .single()
+
+        if (reportError || !report) {
+            return res.status(404).json({ error: "Report not found" })
+        }
+
+        if (report.status !== "approved") {
+            return res.status(400).json({ error: "Report must be approved before assigning a collector" })
         }
 
         const { error: deleteError } = await supabase
@@ -511,3 +699,6 @@ exports.getLocationSuggestions = async (req, res) => {
         res.status(500).json({ error: "Server error" })
     }
 }
+
+
+

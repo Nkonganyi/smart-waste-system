@@ -4,7 +4,8 @@ let charts = {}
 let allReports = []
 let allCollectors = []
 let adminMap = null
-let mapMarkers = {} // Changed to object for easier lookup by report ID
+let heatLayer = null
+let mapMarkers = {} 
 
 // Require admin role on load
 window.addEventListener("DOMContentLoaded", () => {
@@ -361,8 +362,11 @@ function renderReportsList(reports) {
         return
     }
     
+    // Only show main reports (those with no parent_report_id)
+    const mainReports = reports.filter(r => !r.parent_report_id)
+    
     // Render list
-    reports.forEach(report => {
+    mainReports.forEach(report => {
         const card = document.createElement("div")
         card.className = "card"
         card.style.cursor = "pointer"
@@ -398,12 +402,18 @@ function renderReportsList(reports) {
                     <span style="font-size:0.85rem; font-weight:600;"><span style="color:var(--primary-color);">📍</span> ${report.location.substring(0, 20)}</span>
                     <span style="font-size:0.8rem; color:var(--text-tertiary);">${dateStr}</span>
                 </div>
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <span class="badge badge-status ${report.status}">${formatStatus(report.status)}</span>
-                    <span style="font-size:0.8rem; color: ${report.assigned_to ? 'var(--primary-color)' : 'var(--warning-color)'}; font-weight:600;">
-                        ${assignedText}
-                    </span>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top: 1rem; border-top: 1px solid var(--light-bg); padding-top: 0.75rem;">
+                    <div style="display:flex; gap:0.5rem; align-items:center;">
+                        <span class="badge badge-status ${report.status}">${formatStatus(report.status)}</span>
+                        ${report.duplicate_count > 0 ? `<span style="font-size:0.75rem; font-weight:600; color:var(--primary-color); background:rgba(76, 175, 80, 0.1); padding:2px 10px; border-radius:12px; cursor:pointer;" onclick="event.stopPropagation(); openReportModal('${report.id}', 'duplicates')" onmouseover="this.style.background='rgba(76, 175, 80, 0.2)'" onmouseout="this.style.background='rgba(76, 175, 80, 0.1)'">👥 ${report.duplicate_count + 1} users</span>` : ''}
+                    </div>
                 </div>
+                ${report.duplicate_count > 0 ? `
+                <div style="margin-top: 0.75rem;">
+                    <button class="btn btn-secondary btn-sm btn-block" style="font-size: 0.8rem; padding: 0.4rem;" onclick="event.stopPropagation(); openReportModal('${report.id}', 'duplicates')">
+                        View Duplicates
+                    </button>
+                </div>` : ''}
             </div>
         `
         container.appendChild(card)
@@ -417,16 +427,70 @@ function formatStatus(status) {
 
 // -------------------------------------------------------------
 // MODAL LOGIC & ASSIGNMENT
+console.log("Admin Dashboard JS v2.0 Loaded")
+
+// -------------------------------------------------------------
+// MODAL LOGIC & ASSIGNMENT
 // -------------------------------------------------------------
 let currentModalReportId = null
 
-function openReportModal(reportId) {
+function switchModalTab(tabId) {
+    const detailsBtn = document.getElementById("tab-details")
+    const duplicatesBtn = document.getElementById("tab-duplicates")
+    const detailsSec = document.getElementById("detailsSection")
+    const duplicatesSec = document.getElementById("duplicatesSection")
+    
+    if (!detailsBtn || !duplicatesBtn || !detailsSec || !duplicatesSec) {
+        console.warn("Modal tab elements missing from DOM - aborting switch")
+        return
+    }
+
+    if (tabId === "details") {
+        detailsBtn.classList.add("active")
+        duplicatesBtn.classList.remove("active")
+        detailsSec.style.display = "block"
+        duplicatesSec.style.display = "none"
+    } else {
+        duplicatesBtn.classList.add("active")
+        detailsBtn.classList.remove("active")
+        detailsSec.style.display = "none"
+        duplicatesSec.style.display = "block"
+    }
+}
+
+function openReportModal(reportId, initialTab = 'details') {
     const report = allReports.find(r => r.id === reportId)
     if (!report) return
     
     currentModalReportId = reportId
     
+    // Set active tab
+    switchModalTab(initialTab)
+    
     document.getElementById("modalTitle").textContent = report.title
+    
+    // Duplicates Section Logic
+    const duplicates = allReports.filter(r => r.parent_report_id === reportId)
+    const dupCountLabel = document.getElementById("duplicateCountLabel")
+    const dupList = document.getElementById("duplicatesList")
+    
+    dupCountLabel.textContent = duplicates.length
+    
+    if (duplicates.length > 0) {
+        dupList.innerHTML = duplicates.map(d => `
+            <div style="background: var(--light-bg); padding: 0.75rem; border-radius: 6px; border-left: 3px solid var(--primary-color);">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                    <strong style="font-size: 0.9rem; color: var(--text-primary);">${d.users?.name || 'Anonymous User'}</strong>
+                    <span style="font-size: 0.75rem; color: var(--text-tertiary);">${new Date(d.created_at).toLocaleDateString()}</span>
+                </div>
+                <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.25rem;">📍 ${d.location}</div>
+                <p style="font-size: 0.85rem; color: var(--text-primary); margin: 0; line-height: 1.4;">${d.description}</p>
+            </div>
+        `).join("")
+    } else {
+        dupList.innerHTML = `<div style="padding:2rem; text-align:center; color:var(--text-tertiary);">No duplicate reports linked to this issue.</div>`
+    }
+
     document.getElementById("modalDescription").innerHTML = `
         <p style="color:var(--text-secondary); margin-top:0.5rem;">${report.description}</p>
         <div style="margin-top:1rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
@@ -646,7 +710,10 @@ async function loadMapData() {
     showLoading()
     try {
         const reportsRes = await apiRequest("/reports")
-        if (Array.isArray(reportsRes)) allReports = reportsRes
+        if (Array.isArray(reportsRes)) {
+            allReports = reportsRes
+            updateHeatmapData() // Refresh heatmap points
+        }
         
         initAdminMap()
     } catch (err) {
@@ -722,6 +789,48 @@ function initAdminMap() {
             
         mapMarkers[report.id] = marker
     } )
+
+    // Initialize/Update heatmap if active
+    updateHeatmapData()
+}
+
+function updateHeatmapData() {
+    if (!adminMap) return
+
+    const reportsWithCoords = allReports.filter(r => r.latitude && r.longitude)
+    const heatPoints = reportsWithCoords.map(r => [r.latitude, r.longitude, 0.5]) // lat, lng, intensity
+
+    if (heatLayer) {
+        heatLayer.setLatLngs(heatPoints)
+    } else {
+        heatLayer = L.heatLayer(heatPoints, {
+            radius: 25,
+            blur: 15,
+            maxZoom: 17,
+            gradient: { 0.4: 'blue', 0.6: 'cyan', 0.7: 'lime', 0.8: 'yellow', 1.0: 'red' }
+        })
+    }
+
+    const showHeatmap = document.getElementById("heatmapToggle")?.checked
+    if (showHeatmap) {
+        heatLayer.addTo(adminMap)
+    } else {
+        heatLayer.remove()
+    }
+}
+
+function toggleHeatmap() {
+    const showHeatmap = document.getElementById("heatmapToggle")?.checked
+    
+    if (showHeatmap) {
+        if (heatLayer) heatLayer.addTo(adminMap)
+        // Optionally hide markers when heatmap is on
+        Object.values(mapMarkers).forEach(m => m.remove())
+    } else {
+        if (heatLayer) heatLayer.remove()
+        // Show markers back
+        Object.values(mapMarkers).forEach(m => m.addTo(adminMap))
+    }
 }
 
 function focusReportOnMap(reportId) {

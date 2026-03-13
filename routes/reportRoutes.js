@@ -27,6 +27,13 @@ router.post(
     authorize(["admin"]),
     reportController.assignCollector
 )
+// Approve report (admin only)
+router.put(
+    "/approve",
+    authenticate,
+    authorize(["admin"]),
+    reportController.approveReport
+)
 // Update report status (collector only)
 router.put(
     "/status",
@@ -66,6 +73,19 @@ router.put(
     authorize(["collector"]),
     reportController.completeReport
 )
+// Reject report (admin only)
+router.put(
+    "/reject",
+    authenticate,
+    (req, res, next) => {
+        if (req.user && req.user.role !== "admin") {
+            return next("route")
+        }
+        return next()
+    },
+    authorize(["admin"]),
+    reportController.rejectReport
+)
 // Reject report assignment (collector only)
 router.put(
     "/reject",
@@ -82,3 +102,5 @@ router.get(
 )
 
 module.exports = router
+
+

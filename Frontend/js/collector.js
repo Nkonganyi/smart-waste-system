@@ -45,22 +45,172 @@ function logout() {
 }
 
 let allAssignedReports = []
+let collectorMap = null
+let routeLayer = null
+let markersGroup = null
+
+// Initialize Map
+function initMap() {
+    if (collectorMap) return
+    
+    // Buea, Cameroon coordinates
+    const bueaLat = 4.155
+    const bueaLng = 9.231
+    
+    collectorMap = L.map('collectorMap').setView([bueaLat, bueaLng], 13)
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(collectorMap)
+    
+    routeLayer = L.layerGroup().addTo(collectorMap)
+    markersGroup = L.layerGroup().addTo(collectorMap)
+}
 
 // Load assigned reports
 async function loadAssignedReports() {
     showLoading()
     try {
+        initMap()
         const data = await apiRequest("/reports/assigned")
         if (Array.isArray(data)) {
             allAssignedReports = data
             renderReports()
             updateWorkSummary()
+            updateRoute() // Update map route
         }
     } catch (err) {
         console.error("loadAssignedReports error:", err)
         showToast("Error loading assignments", "error")
     }
     hideLoading()
+}
+
+// Update Route using OSRM Trip API
+async function updateRoute() {
+    if (!collectorMap) return
+    
+    // Filter non-completed reports with valid coordinates
+    const reportsToVisit = allAssignedReports.filter(r => 
+        r.status !== "completed" && r.latitude && r.longitude
+    )
+    
+    // Clear existing layers
+    routeLayer.clearLayers()
+    markersGroup.clearLayers()
+    
+    if (reportsToVisit.length === 0) return
+    
+    // If only one report, just show a marker
+    if (reportsToVisit.length === 1) {
+        const r = reportsToVisit[0]
+        L.marker([r.latitude, r.longitude], {
+            icon: L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div class="route-marker">1</div>`,
+                iconSize: [24, 24],
+                iconAnchor: [12, 12]
+            })
+        })
+        .bindPopup(`<b>Stop 1: ${r.title}</b><br>${r.location}`)
+        .addTo(markersGroup)
+        
+        collectorMap.setView([r.latitude, r.longitude], 15)
+        return
+    }
+
+    try {
+        // Construct coordinates string for OSRM: lng,lat;lng,lat
+        const coordsStr = reportsToVisit
+            .map(r => `${r.longitude},${r.latitude}`)
+            .join(";")
+            
+        const url = `https://router.project-osrm.org/trip/v1/driving/${coordsStr}?source=first&geometries=geojson&overview=full`
+        
+        const response = await fetch(url)
+        const data = await response.json()
+        
+        if (data.code !== "Ok") {
+            console.warn("OSRM error:", data.code)
+            // Fallback: draw straight lines if OSRM fails
+            drawSimpleRoute(reportsToVisit)
+            return
+        }
+
+        // 1. Draw Polyline
+        const routeGeoJSON = data.trips[0].geometry
+        L.geoJSON(routeGeoJSON, {
+            style: { color: "var(--primary-color)", weight: 5, opacity: 0.7, lineJoin: 'round' }
+        }).addTo(routeLayer)
+
+        // 2. Draw Numbered Markers based on OSRM waypoint order
+        const waypoints = data.waypoints.sort((a, b) => a.waypoint_index - b.waypoint_index)
+        
+        waypoints.forEach((wp, index) => {
+            // Find the report that matches these coordinates (with small epsilon)
+            const report = reportsToVisit.find(r => 
+                Math.abs(r.longitude - wp.location[0]) < 0.0001 && 
+                Math.abs(r.latitude - wp.location[1]) < 0.0001
+            )
+            
+            if (report) {
+                L.marker([report.latitude, report.longitude], {
+                    icon: L.divIcon({
+                        className: 'custom-div-icon',
+                        html: `<div class="route-marker">${index + 1}</div>`,
+                        iconSize: [24, 24],
+                        iconAnchor: [12, 12]
+                    })
+                })
+                .bindPopup(`
+                    <div style="font-family:inherit;">
+                        <strong style="color:var(--primary-color);">Stop ${index + 1}:</strong> ${report.title}<br>
+                        <small style="color:var(--text-secondary);">${report.location}</small><br>
+                        <button class="btn btn-primary btn-sm btn-block" style="margin-top:8px; padding:4px 8px; font-size:0.8rem;" onclick="focusReportCard('${report.id}')">View Details</button>
+                    </div>
+                `)
+                .addTo(markersGroup)
+            }
+        })
+        
+        // Fit map to route
+        collectorMap.fitBounds(L.geoJSON(routeGeoJSON).getBounds(), { padding: [50, 50] })
+        
+    } catch (err) {
+        console.error("updateRoute error:", err)
+        drawSimpleRoute(reportsToVisit)
+    }
+}
+
+// Fallback: Draw straight lines between points
+function drawSimpleRoute(reports) {
+    const latlngs = reports.map(r => [r.latitude, r.longitude])
+    L.polyline(latlngs, { color: "var(--text-tertiary)", dashArray: '10, 10' }).addTo(routeLayer)
+    
+    reports.forEach((r, i) => {
+        L.marker([r.latitude, r.longitude], {
+            icon: L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div class="route-marker" style="background-color:var(--text-tertiary);">${i + 1}</div>`,
+                iconSize: [24, 24],
+                iconAnchor: [12, 12]
+            })
+        }).addTo(markersGroup)
+    })
+    
+    if (latlngs.length > 0) {
+        collectorMap.fitBounds(L.polyline(latlngs).getBounds())
+    }
+}
+
+// Function to scroll to report card
+function focusReportCard(reportId) {
+    const card = document.getElementById(`report-card-${reportId}`)
+    if (card) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        card.style.boxShadow = "0 0 15px var(--primary-color)"
+        setTimeout(() => card.style.boxShadow = "", 2000)
+    }
 }
 
 // Render reports
@@ -84,6 +234,7 @@ function renderReports() {
     filtered.forEach(report => {
         const card = document.createElement("div")
         card.className = "card"
+        card.id = `report-card-${report.id}`
 
         // Determine available actions based on status
         let actionButtons = ""

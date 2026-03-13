@@ -33,18 +33,17 @@ const geocode = async (address) => {
                 longitude: lng
             };
         }
-
-        // Requirement 5: If the API returns no results, throw an error
-        throw new Error(`Location could not be identified: "${address}"`);
+        
+        // Return null if location not found (graceful failure)
+        return null;
         
     } catch (error) {
-        // Requirement 6: Use async/await and proper error handling
         if (error.response) {
-            // API responded with an error status
-            throw new Error(`Geocoding API error: ${error.response.data.status?.message || error.message}`);
+            console.error(`Geocoding API error: ${error.response.data.status?.message || error.message}`);
+        } else {
+            console.error(`Geocoding error: ${error.message}`);
         }
-        // If it's already an error we threw (like "Location could not be identified"), rethrow it
-        throw error;
+        return null;
     }
 };
 

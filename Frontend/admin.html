@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 </head>
 <body>
     <div class="dashboard">
@@ -100,8 +101,12 @@
 
                 <!-- Map Section -->
                 <section class="dashboard-section" id="map" style="display: none;">
-                    <div class="section-header">
+                    <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
                         <h2 class="section-title">🗺️ Geographic Visualization</h2>
+                        <div class="form-group" style="margin: 0; display: flex; align-items: center; gap: 0.5rem; background: var(--card-bg); padding: 0.5rem 1rem; border-radius: 20px; box-shadow: var(--shadow);">
+                            <label class="form-label" style="margin: 0; font-size: 0.9rem; cursor: pointer;">🔥 Show Heatmap</label>
+                            <input type="checkbox" id="heatmapToggle" onchange="toggleHeatmap()" style="width: auto; cursor: pointer;">
+                        </div>
                     </div>
                     <div class="card">
                         <div class="card-body" style="padding: 0;">
@@ -206,15 +211,52 @@
         <!-- Report Detail Modal -->
         <div id="reportModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; overflow-y: auto;" onclick="closeReportModal(event)">
             <div class="card" style="max-width: 600px; margin: 2rem auto; max-height: 90vh; overflow-y: auto;" onclick="event.stopPropagation()">
-                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <style>
+                    .modal-tabs {
+                        display: flex;
+                        border-bottom: 2px solid var(--light-bg);
+                        margin: 0 1.5rem 1.5rem;
+                    }
+                    .modal-tab {
+                        flex: 1;
+                        padding: 0.75rem;
+                        border: none;
+                        background: none;
+                        color: var(--text-secondary);
+                        font-weight: 600;
+                        cursor: pointer;
+                        border-bottom: 3px solid transparent;
+                        transition: all 0.3s;
+                    }
+                    .modal-tab:hover {
+                        color: var(--primary-color);
+                        background: rgba(76, 175, 80, 0.05);
+                    }
+                    .modal-tab.active {
+                        color: var(--primary-color);
+                        border-bottom-color: var(--primary-color);
+                    }
+                </style>
+                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: none;">
                     <h2 class="card-header-title" id="modalTitle">Report Details</h2>
                     <button onclick="closeReportModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-primary);">✕</button>
                 </div>
+                <!-- Modal Tabs -->
+                <div class="modal-tabs">
+                    <button class="modal-tab active" id="tab-details" onclick="switchModalTab('details')">📋 Details</button>
+                    <button class="modal-tab" id="tab-duplicates" onclick="switchModalTab('duplicates')">👥 Linked Reports (<span id="duplicateCountLabel">0</span>)</button>
+                </div>
                 <div class="card-body">
-                    <div id="modalDescription"></div>
-                    <div id="modalImage" style="margin: 1.5rem 0;"></div>
-                    <div id="modalDetails"></div>
-                    <div id="modalHistory" style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--light-bg);"></div>
+                    <div id="detailsSection">
+                        <div id="modalDescription"></div>
+                        <div id="modalImage" style="margin: 1.5rem 0;"></div>
+                        <div id="modalDetails"></div>
+                        <div id="modalHistory" style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--light-bg);"></div>
+                    </div>
+                    
+                    <div id="duplicatesSection" style="display: none;">
+                        <div id="duplicatesList" style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1rem;"></div>
+                    </div>
                 </div>
                 <div class="card-footer">
                     <button class="btn btn-secondary" onclick="closeReportModal()">Close</button>
@@ -224,8 +266,8 @@
         </div>
     </div>
 
-    <script src="js/api.js"></script>
-    <script src="js/admin.js"></script>
+    <script src="js/api.js?v=2.0"></script>
+    <script src="js/admin.js?v=2.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         // Dark mode toggle
