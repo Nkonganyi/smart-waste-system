@@ -6,6 +6,7 @@ window.addEventListener("DOMContentLoaded", () => {
     loadTheme()
     loadNotifications()
     loadMyReports()
+    initAutocomplete()
 })
 
 function loadTheme() {
@@ -67,28 +68,19 @@ async function submitReport() {
     if (image) formData.append("image", image)
 
     try {
-        const response = await fetch(`${API_BASE_URL}/reports`, {
-            method: "POST",
-            headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-            body: formData
-        })
+        const data = await apiRequest("/reports", "POST", formData, true)
 
-        const data = await response.json()
-
-        if (data.message) {
-            showToast("Report submitted successfully! Thank you for reporting.", "success")
-            document.getElementById("title").value = ""
-            document.getElementById("description").value = ""
-            document.getElementById("location").value = ""
-            document.getElementById("image").value = ""
-            document.getElementById("priority").value = "normal"
-            await loadMyReports()
-        } else {
-            showToast(data.error || "Error submitting report", "error")
-        }
+        showToast("Report submitted successfully! Thank you for reporting.", "success")
+        document.getElementById("title").value = ""
+        document.getElementById("description").value = ""
+        document.getElementById("location").value = ""
+        document.getElementById("image").value = ""
+        document.getElementById("priority").value = "normal"
+        clearPreview()
+        await loadMyReports()
     } catch (err) {
         console.error(err)
-        showToast("Error submitting report. Please try again.", "error")
+        showToast(err.message || "Error submitting report. Please try again.", "error")
     }
 
     hideLoading()
@@ -186,6 +178,69 @@ async function loadMyReports() {
     hideLoading()
 }
 
+
+// Location Autocomplete Logic
+function initAutocomplete() {
+    const locationInput = document.getElementById("location")
+    const suggestionsList = document.getElementById("suggestionsList")
+    let debounceTimer
+
+    if (!locationInput || !suggestionsList) return
+
+    locationInput.addEventListener("input", () => {
+        clearTimeout(debounceTimer)
+        const query = locationInput.value.trim()
+
+        if (query.length < 2) {
+            suggestionsList.style.display = "none"
+            return
+        }
+
+        debounceTimer = setTimeout(async () => {
+            try {
+                // Fetch suggestions from backend
+                const suggestions = await apiRequest(`/reports/location-suggestions?q=${encodeURIComponent(query)}`)
+                
+                renderSuggestions(suggestions)
+            } catch (err) {
+                console.error("Autocomplete error:", err)
+            }
+        }, 300)
+    })
+
+    // Hide suggestions when clicking outside
+    document.addEventListener("click", (e) => {
+        if (!e.target.closest(".suggestions-container")) {
+            suggestionsList.style.display = "none"
+        }
+    })
+}
+
+function renderSuggestions(suggestions) {
+    const list = document.getElementById("suggestionsList")
+    if (!list) return
+
+    list.innerHTML = ""
+    
+    if (suggestions.length === 0) {
+        list.style.display = "none"
+        return
+    }
+
+    suggestions.forEach(text => {
+        const li = document.createElement("li")
+        li.className = "suggestion-item"
+        li.textContent = text
+        li.addEventListener("click", () => {
+            document.getElementById("location").value = text
+            list.style.display = "none"
+        })
+        list.appendChild(li)
+    })
+
+    list.style.display = "block"
+}
+
 // Sidebar link close on mobile
 document.querySelectorAll(".sidebar-link").forEach(link => {
     link.addEventListener("click", () => {
@@ -195,3 +250,30 @@ document.querySelectorAll(".sidebar-link").forEach(link => {
         }
     })
 })
+
+// Image Preview Logic
+function previewImage(event) {
+    const reader = new FileReader()
+    const preview = document.getElementById("imagePreview")
+    const file = event.target.files[0]
+
+    if (file) {
+        reader.onload = function() {
+            if (preview) {
+                preview.src = reader.result
+                preview.style.display = "block"
+            }
+        }
+        reader.readAsDataURL(file)
+    } else {
+        clearPreview()
+    }
+}
+
+function clearPreview() {
+    const preview = document.getElementById("imagePreview")
+    if (preview) {
+        preview.src = ""
+        preview.style.display = "none"
+    }
+}

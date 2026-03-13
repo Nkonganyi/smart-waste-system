@@ -1,4 +1,5 @@
 const supabase = require("../config/supabase")
+
 // Get admin dashboard stats (admin only)
 exports.getAdminStats = async (req, res) => {
     try {
@@ -41,60 +42,99 @@ exports.getAdminStats = async (req, res) => {
             .eq("role", "collector")
 
         res.json({
-            totalReports,
-            pending,
-            inProgress,
-            completed,
-            highPriority,
-            lowPriority,
-            totalUsers,
-            collectors
+            totalReports: totalReports || 0,
+            pending: pending || 0,
+            inProgress: inProgress || 0,
+            completed: completed || 0,
+            highPriority: highPriority || 0,
+            lowPriority: lowPriority || 0,
+            totalUsers: totalUsers || 0,
+            collectors: collectors || 0
         })
-
     } catch (err) {
+        console.error("getAdminStats error:", err)
         res.status(500).json({ error: "Server error" })
     }
 }
+
 // Get report counts per location
 exports.getReportsPerLocation = async (req, res) => {
-    const { data, error } = await supabase
-        .from("reports")
-        .select("location")
+    try {
+        const { data, error } = await supabase
+            .from("reports")
+            .select("location")
 
-    if (error) {
-        return res.status(400).json({ error: error.message })
+        if (error) {
+            return res.status(400).json({ error: error.message })
+        }
+
+        const locationCounts = {}
+        data.forEach(report => {
+            if (report.location) {
+                locationCounts[report.location] = (locationCounts[report.location] || 0) + 1
+            }
+        })
+
+        // Format for Chart.js [ { location: "X", count: 5 }, ... ]
+        const result = Object.keys(locationCounts).map(loc => ({
+            location: loc,
+            count: locationCounts[loc]
+        }))
+
+        res.json(result)
+    } catch (err) {
+        console.error("getReportsPerLocation error:", err)
+        res.status(500).json({ error: "Server error" })
     }
-
-    // Count manually
-    const locationCounts = {}
-
-    data.forEach(report => {
-        locationCounts[report.location] =
-            (locationCounts[report.location] || 0) + 1
-    })
-
-    res.json(locationCounts)
 }
+
 // Get collector workload (number of assigned reports)
 exports.getCollectorWorkload = async (req, res) => {
-    const { data, error } = await supabase
-        .from("assignments")
-        .select(`
-            collector_id,
-            users!assignments_collector_id_fkey(name)
-        `)
+    try {
+        const { data: assignments, error } = await supabase
+            .from("assignments")
+            .select("collector_id")
 
-    if (error) {
-        return res.status(400).json({ error: error.message })
+        if (error) {
+            return res.status(400).json({ error: error.message })
+        }
+
+        if (!assignments || assignments.length === 0) {
+            return res.json([])
+        }
+
+        const collectorIds = [...new Set(assignments.map(a => a.collector_id))]
+        let collectorMap = {}
+
+        if (collectorIds.length > 0) {
+            const { data: users } = await supabase
+                .from("users")
+                .select("id, name")
+                .in("id", collectorIds)
+            
+            if (users) {
+                collectorMap = users.reduce((acc, u) => {
+                    acc[u.id] = u.name
+                    return acc
+                }, {})
+            }
+        }
+
+        const workload = {}
+        assignments.forEach(item => {
+            const name = collectorMap[item.collector_id] || "Unknown collector"
+            workload[name] = (workload[name] || 0) + 1
+        })
+
+        // Format for Chart.js [ { collector: "X", count: 5 }, ... ]
+        const result = Object.keys(workload).map(name => ({
+            collector: name,
+            count: workload[name]
+        }))
+
+        res.json(result)
+    } catch (err) {
+        console.error("getCollectorWorkload error:", err)
+        res.status(500).json({ error: "Server error" })
     }
-
-    const workload = {}
-
-    data.forEach(item => {
-        const name = item.users?.name || "Unknown collector"
-
-        workload[name] = (workload[name] || 0) + 1
-    })
-
-    res.json(workload)
 }

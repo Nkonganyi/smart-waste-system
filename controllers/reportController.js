@@ -1,4 +1,5 @@
 const supabase = require("../config/supabase")
+const { geocode, getLocationSuggestions } = require("../utils/geocodingService")
 
 // Create a new report (authenticated users)
 exports.createReport = async (req, res) => {
@@ -7,6 +8,13 @@ exports.createReport = async (req, res) => {
 
         if (!title || !description || !location || !priority) {
             return res.status(400).json({ message: "All fields required" })
+        }
+
+        // Validation Rule 2: At least 3 characters
+        if (typeof location !== "string" || location.trim().length < 3) {
+            return res.status(400).json({ 
+                error: "Please provide a valid location or landmark." 
+            })
         }
 
         // Handle image upload if file is provided
@@ -32,6 +40,23 @@ exports.createReport = async (req, res) => {
             imageUrl = publicUrl.publicUrl
         }
 
+        // Geocode location (Strictly required)
+        let coords = null
+        try {
+            coords = await geocode(location)
+            if (!coords) {
+                return res.status(400).json({ 
+                    error: "Please provide a valid location or landmark." 
+                })
+            }
+            console.log(`Geocoded "${location}" to:`, coords)
+        } catch (geoError) {
+            console.error(`Geocoding failed for "${location}":`, geoError.message)
+            return res.status(400).json({ 
+                error: "Please provide a valid location or landmark." 
+            })
+        }
+
         // Insert report into database
         const { data: report, error } = await supabase
             .from("reports")
@@ -42,7 +67,9 @@ exports.createReport = async (req, res) => {
                     description,
                     location,
                     priority: priority || "normal",
-                    image_url: imageUrl
+                    image_url: imageUrl,
+                    latitude: coords ? coords.latitude : null,
+                    longitude: coords ? coords.longitude : null
                 }
             ])
             .select()
@@ -77,36 +104,58 @@ exports.createReport = async (req, res) => {
 // Get all reports (admin only)
 exports.getAllReports = async (req, res) => {
     try {
-        const { data, error } = await supabase
+        // Fetch reports without direct join to avoid "relationship not found" errors
+        const { data: reports, error: reportError } = await supabase
             .from("reports")
-            .select(`*, users(name, email)`)
+            .select("*")
+            .order("created_at", { ascending: false })
 
-        if (error) {
-            return res.status(400).json({ error: error.message })
+        if (reportError) {
+            return res.status(400).json({ error: reportError.message })
         }
 
-        const reports = data || []
+        if (!reports || reports.length === 0) {
+            return res.json([])
+        }
+
+        // Fetch users manually to link them
+        const userIds = [...new Set(reports.map(r => r.user_id).filter(id => id))]
+        let userMap = {}
+
+        if (userIds.length > 0) {
+            const { data: users } = await supabase
+                .from("users")
+                .select("id, name, email")
+                .in("id", userIds)
+            
+            if (users) {
+                userMap = users.reduce((acc, u) => {
+                    acc[u.id] = { name: u.name, email: u.email }
+                    return acc
+                }, {})
+            }
+        }
+
+        // Fetch assignments
         const reportIds = reports.map(report => report.id)
         let assignmentMap = {}
 
-        if (reportIds.length > 0) {
-            const { data: assignments, error: assignmentError } = await supabase
-                .from("assignments")
-                .select("report_id, collector_id")
-                .in("report_id", reportIds)
+        const { data: assignments } = await supabase
+            .from("assignments")
+            .select("report_id, collector_id")
+            .in("report_id", reportIds)
 
-            if (assignmentError) {
-                return res.status(400).json({ error: assignmentError.message })
-            }
-
-            assignmentMap = assignments.reduce((acc, assignment) => {
-                acc[assignment.report_id] = assignment.collector_id
+        if (assignments) {
+            assignmentMap = assignments.reduce((acc, a) => {
+                acc[a.report_id] = a.collector_id
                 return acc
             }, {})
         }
 
+        // Enrich reports with user and assignment data
         const enriched = reports.map(report => ({
             ...report,
+            users: userMap[report.user_id] || { name: "Unknown", email: "N/A" },
             assigned_to: assignmentMap[report.id] || null
         }))
 
@@ -443,6 +492,22 @@ exports.rejectAssignment = async (req, res) => {
         res.json({ message: "Assignment rejected successfully" })
     } catch (err) {
         console.error("rejectAssignment exception:", err)
+        res.status(500).json({ error: "Server error" })
+    }
+}
+
+// Get location suggestions for autocomplete
+exports.getLocationSuggestions = async (req, res) => {
+    try {
+        const { q } = req.query
+        if (!q || q.length < 2) {
+            return res.json([])
+        }
+
+        const suggestions = await getLocationSuggestions(q)
+        res.json(suggestions)
+    } catch (err) {
+        console.error("getLocationSuggestions exception:", err)
         res.status(500).json({ error: "Server error" })
     }
 }

@@ -19,10 +19,8 @@ router.post("/forgot-password", authController.forgotPassword)
 router.post("/reset-password", authController.resetPassword)
 
 /**
- * Admin-only user management routes
+ * Admin-only user management (Moved to adminRoutes.js)
  */
-router.post("/verify-email-admin", authenticate, authorize(["admin"]), authController.verifyEmail)
-router.post("/suspend-user", authenticate, authorize(["admin"]), authController.suspendUser)
-router.post("/unsuspend-user", authenticate, authorize(["admin"]), authController.unsuspendUser)
+// router.post("/suspend-user", ...)
 
 module.exports = router

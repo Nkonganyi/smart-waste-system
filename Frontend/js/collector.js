@@ -186,7 +186,7 @@ async function startJob(reportId) {
     if (!confirm("Start this cleanup job now?")) return
     showLoading()
     try {
-        await apiRequest("/reports/start", "PATCH", { report_id: reportId })
+        await apiRequest("/reports/start", "PUT", { report_id: reportId })
         showToast("Job marked as In Progress", "success")
         await loadAssignedReports()
     } catch (err) {
@@ -200,7 +200,7 @@ async function rejectJob(reportId) {
     if (!confirm("Are you sure you want to reject this assignment? It will go back into the unassigned queue.")) return
     showLoading()
     try {
-        await apiRequest("/reports/reject-assignment", "POST", { report_id: reportId })
+        await apiRequest("/reports/reject", "PUT", { report_id: reportId })
         showToast("Assignment rejected", "info")
         await loadAssignedReports()
     } catch (err) {
@@ -249,7 +249,7 @@ async function submitCompletion(reportId) {
         if (!imageUrl) throw new Error("No URL returned from upload")
 
         // Then mark the report completed with the image URL
-        await apiRequest("/reports/complete", "PATCH", {
+        await apiRequest("/reports/complete", "PUT", {
             report_id: reportId,
             completion_image_url: imageUrl
         })

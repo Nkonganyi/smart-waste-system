@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard - GroundClean</title>
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 </head>
 <body>
     <div class="dashboard">
@@ -32,6 +34,7 @@
                 <ul class="sidebar-list">
                     <li><a href="#stats" class="sidebar-link active" onclick="selectTab('stats')">📈 Dashboard</a></li>
                     <li><a href="#analytics" class="sidebar-link" onclick="selectTab('analytics')">📊 Analytics</a></li>
+                    <li><a href="#map" class="sidebar-link" onclick="selectTab('map')">🗺️ Map View</a></li>
                     <li><a href="#reports" class="sidebar-link" onclick="selectTab('reports')">📋 Reports</a></li>
                     <li><a href="#collectors" class="sidebar-link" onclick="selectTab('collectors')">👷 Collectors</a></li>
                     <li><a href="profile.html" class="sidebar-link">👤 My Profile</a></li>
@@ -91,6 +94,18 @@
                             <div class="card-body">
                                 <canvas id="priorityChart"></canvas>
                             </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Map Section -->
+                <section class="dashboard-section" id="map" style="display: none;">
+                    <div class="section-header">
+                        <h2 class="section-title">🗺️ Geographic Visualization</h2>
+                    </div>
+                    <div class="card">
+                        <div class="card-body" style="padding: 0;">
+                            <div id="adminMap" style="height: 600px; width: 100%; border-radius: 8px;"></div>
                         </div>
                     </div>
                 </section>

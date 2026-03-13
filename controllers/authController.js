@@ -334,10 +334,12 @@ exports.suspendUser = async (req, res) => {
             .select("id, name, email, role, is_suspended")
 
         if (error) {
+            console.error("Suspension DB error:", error)
             return res.status(500).json({ error: "Suspension failed", message: "Failed to suspend user" })
         }
 
-        res.status(200).json({ message: "User suspended successfully", user: updatedUser[0] })
+        console.log(`[DEBUG] User ${userId} suspended. Update count:`, updatedUser?.length)
+        res.status(200).json({ message: "User suspended successfully", user: updatedUser?.[0] })
     } catch (error) {
         console.error("Suspension exception:", error)
         res.status(500).json({ error: "Server error", message: "An unexpected error occurred" })
@@ -362,10 +364,12 @@ exports.unsuspendUser = async (req, res) => {
             .select("id, name, email, role, is_suspended")
 
         if (error) {
+            console.error("Reactivation DB error:", error)
             return res.status(500).json({ error: "Reactivation failed", message: "Failed to reactivate user" })
         }
 
-        res.status(200).json({ message: "User reactivated successfully", user: updatedUser[0] })
+        console.log(`[DEBUG] User ${userId} reactivated. Update count:`, updatedUser?.length)
+        res.status(200).json({ message: "User reactivated successfully", user: updatedUser?.[0] })
     } catch (error) {
         console.error("Reactivation exception:", error)
         res.status(500).json({ error: "Server error", message: "An unexpected error occurred" })

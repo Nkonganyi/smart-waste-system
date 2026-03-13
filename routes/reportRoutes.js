@@ -40,6 +40,12 @@ router.get(
     authorize(["admin"]),
     reportController.getCollectorWorkload
 )
+// Get location suggestions (public-ish, only requires auth)
+router.get(
+    "/location-suggestions",
+    authenticate,
+    reportController.getLocationSuggestions
+)
 // Get my reports (citizens and collectors)
 router.get(
     "/my",

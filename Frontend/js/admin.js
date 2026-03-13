@@ -3,6 +3,8 @@
 let charts = {}
 let allReports = []
 let allCollectors = []
+let adminMap = null
+let mapMarkers = {} // Changed to object for easier lookup by report ID
 
 // Require admin role on load
 window.addEventListener("DOMContentLoaded", () => {
@@ -81,6 +83,8 @@ function selectTab(tabId) {
         loadDashboardStats()
     } else if (tabId === "analytics") {
         loadAnalytics()
+    } else if (tabId === "map") {
+        loadMapData()
     } else if (tabId === "reports") {
         loadAllData()
     } else if (tabId === "collectors") {
@@ -102,25 +106,25 @@ async function loadDashboardStats() {
         container.innerHTML = `
             <div class="card">
                 <div class="card-body text-center">
-                    <h3 style="font-size: 2.5rem; color: var(--primary-color); margin: 0;">${data.total_reports || 0}</h3>
+                    <h3 style="font-size: 2.5rem; color: var(--primary-color); margin: 0;">${data.totalReports || 0}</h3>
                     <p style="color: var(--text-secondary); margin: 0;">Total Reports</p>
                 </div>
             </div>
             <div class="card">
                 <div class="card-body text-center">
-                    <h3 style="font-size: 2.5rem; color: var(--warning-color); margin: 0;">${data.pending_reports || 0}</h3>
+                    <h3 style="font-size: 2.5rem; color: var(--warning-color); margin: 0;">${data.pending || 0}</h3>
                     <p style="color: var(--text-secondary); margin: 0;">Pending Assignment</p>
                 </div>
             </div>
             <div class="card">
                 <div class="card-body text-center">
-                    <h3 style="font-size: 2.5rem; color: var(--success-color); margin: 0;">${data.completed_reports || 0}</h3>
+                    <h3 style="font-size: 2.5rem; color: var(--success-color); margin: 0;">${data.completed || 0}</h3>
                     <p style="color: var(--text-secondary); margin: 0;">Completed Cleanups</p>
                 </div>
             </div>
             <div class="card">
                 <div class="card-body text-center">
-                    <h3 style="font-size: 2.5rem; color: #4fc3f7; margin: 0;">${data.active_collectors || 0}</h3>
+                    <h3 style="font-size: 2.5rem; color: #4fc3f7; margin: 0;">${data.collectors || 0}</h3>
                     <p style="color: var(--text-secondary); margin: 0;">Active Collectors</p>
                 </div>
             </div>
@@ -178,7 +182,7 @@ function initCharts(locationsData, collectorsData) {
         charts.location = new Chart(locCtx, {
             type: "bar",
             data: {
-                labels: locationsData.map(d => d.location.substring(0, 15)),
+                labels: locationsData.map(d => (d.location || "Unknown").substring(0, 15)),
                 datasets: [{
                     label: "Reports",
                     data: locationsData.map(d => parseInt(d.count, 10)),
@@ -293,7 +297,7 @@ function populateLocationFilter() {
     sel.innerHTML = '<option value="">All Locations</option>'
     
     Array.from(locs).sort().forEach(loc => {
-        sel.innerHTML += \`<option value="\${loc}">\${loc}</option>\`
+        sel.innerHTML += `<option value="${loc}">${loc}</option>`
     })
 }
 
@@ -365,7 +369,12 @@ function renderReportsList(reports) {
         card.style.transition = "transform 0.2s"
         card.onmouseover = () => card.style.transform = "translateY(-2px)"
         card.onmouseout = () => card.style.transform = "translateY(0)"
-        card.onclick = () => openReportModal(report.id)
+        card.onclick = () => {
+            openReportModal(report.id)
+            if (report.latitude && report.longitude) {
+                focusReportOnMap(report.id)
+            }
+        }
         
         // Identify assigned collector name
         let assignedText = "Unassigned"
@@ -605,7 +614,7 @@ async function forceVerifyEmail(userId) {
     if (!confirm("Force verification for this account?")) return
     showLoading()
     try {
-        await apiRequest("/auth/verify-email-admin", "POST", { userId })
+        await apiRequest("/admin/verify-user", "POST", { userId })
         showToast("Email verified successfully", "success")
         loadCollectorsTab() // Refresh
     } catch (err) {
@@ -624,11 +633,111 @@ async function toggleCollectorStatus(collectorId, suspend) {
     
     showLoading()
     try {
-        await apiRequest(`/auth/${action}-user`, "POST", { userId: collectorId })
+        await apiRequest(`/admin/${action}-user`, "POST", { userId: collectorId })
         showToast(suspend ? "Collector suspended" : "Collector reactivated", "success")
         loadCollectorsTab() // refresh table
     } catch (err) {
         showToast(`Failed to ${action} collector`, "error")
     }
     hideLoading()
+}
+
+async function loadMapData() {
+    showLoading()
+    try {
+        const reportsRes = await apiRequest("/reports")
+        if (Array.isArray(reportsRes)) allReports = reportsRes
+        
+        initAdminMap()
+    } catch (err) {
+        console.error("Map data error:", err)
+        showToast("Failed to load map data", "error")
+    }
+    hideLoading()
+}
+
+function initAdminMap() {
+    // Icons moved inside to ensure L (Leaflet) is defined when function runs
+    const markerIcons = {
+        pending: L.divIcon({
+            className: 'custom-marker',
+            html: `<div style="background-color: #EF5350; width: 12px; height: 12px; border: 2px solid white; border-radius: 50%; box-shadow: 0 0 5px rgba(0,0,0,0.5);"></div>`,
+            iconSize: [16, 16],
+            iconAnchor: [8, 8]
+        }),
+        in_progress: L.divIcon({
+            className: 'custom-marker',
+            html: `<div style="background-color: #FFCA28; width: 12px; height: 12px; border: 2px solid white; border-radius: 50%; box-shadow: 0 0 5px rgba(0,0,0,0.5);"></div>`,
+            iconSize: [16, 16],
+            iconAnchor: [8, 8]
+        }),
+        completed: L.divIcon({
+            className: 'custom-marker',
+            html: `<div style="background-color: #66BB6A; width: 12px; height: 12px; border: 2px solid white; border-radius: 50%; box-shadow: 0 0 5px rgba(0,0,0,0.5);"></div>`,
+            iconSize: [16, 16],
+            iconAnchor: [8, 8]
+        })
+    }
+
+    // Buea, Cameroon coordinates
+    const bueaLat = 4.155
+    const bueaLng = 9.231
+    
+    if (!adminMap) {
+        adminMap = L.map('adminMap').setView([bueaLat, bueaLng], 13)
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(adminMap)
+    } else {
+        setTimeout(() => adminMap.invalidateSize(), 50)
+    }
+    
+    // Clear existing markers
+    Object.values(mapMarkers).forEach(m => adminMap.removeLayer(m))
+    mapMarkers = {}
+    
+    const reportsWithCoords = allReports.filter(r => r.latitude && r.longitude)
+    
+    reportsWithCoords.forEach(report => {
+        const dateStr = new Date(report.created_at).toLocaleDateString()
+        const statusLabel = formatStatus(report.status)
+        
+        const marker = L.marker([report.latitude, report.longitude], {
+            icon: markerIcons[report.status] || markerIcons.pending
+        })
+            .bindPopup(`
+                <div style="font-family: inherit; min-width: 220px; padding: 5px;">
+                    <h4 style="margin: 0 0 8px 0; color: var(--primary-color); font-size: 1.1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 5px;">${report.title}</h4>
+                    <p style="margin: 0 0 10px 0; font-size: 0.9rem; color: var(--text-primary); line-height: 1.4;">${report.description}</p>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">
+                        <div style="margin-bottom: 4px;"><strong>📍 Location:</strong> ${report.location}</div>
+                        <div style="margin-bottom: 4px;"><strong>🕒 Reported:</strong> ${dateStr}</div>
+                        <div><strong>🚦 Status:</strong> <span class="badge badge-status ${report.status}" style="font-size: 0.7rem;">${statusLabel}</span></div>
+                    </div>
+                    <button class="btn btn-primary btn-sm btn-block" onclick="openReportModal('${report.id}')">View Full Details</button>
+                </div>
+            `)
+            .addTo(adminMap)
+            
+        mapMarkers[report.id] = marker
+    } )
+}
+
+function focusReportOnMap(reportId) {
+    const report = allReports.find(r => r.id === reportId)
+    if (!report || !report.latitude || !report.longitude) return
+
+    // Switch to map tab
+    selectTab('map')
+
+    // Center and zoom map
+    if (adminMap) {
+        adminMap.setView([report.latitude, report.longitude], 15)
+        
+        // Open popup if marker exists
+        if (mapMarkers[reportId]) {
+            mapMarkers[reportId].openPopup()
+        }
+    }
 }

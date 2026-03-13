@@ -109,12 +109,24 @@ async function apiRequest(endpoint, method = "GET", body = null, isForm = false)
             return {}
         }
         
+        let data
         try {
-            return JSON.parse(text)
+            data = JSON.parse(text)
         } catch (parseError) {
             console.error(`[API JSON PARSE ERROR] Content: ${text.substring(0, 100)}...`);
             throw new Error(`Server returned non-JSON (Status ${response.status}). Check server logs.`)
         }
+
+        // Systemic handle for 4xx and 5xx errors
+        if (!response.ok) {
+            console.error(`[API ERROR RESPONSE] ${method} ${endpoint} (Status ${response.status}):`, data);
+            const error = new Error(data.message || data.error || `Request failed with status ${response.status}`)
+            error.status = response.status
+            error.details = data
+            throw error
+        }
+
+        return data
     } catch (error) {
         console.error(`[API FETCH ERROR] ${method} ${endpoint}:`, error);
         if (error.name === "AbortError") {

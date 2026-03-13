@@ -14,6 +14,7 @@ const reportRoutes = require("./routes/reportRoutes")
 const notificationRoutes = require("./routes/notificationRoutes")
 const dashboardRoutes = require("./routes/dashboardRoutes")
 const userRoutes = require("./routes/userRoutes")
+const adminRoutes = require("./routes/adminRoutes")
 
 const app = express()
 const PORT = process.env.PORT || 5000
@@ -37,6 +38,7 @@ app.use("/api/auth", authRoutes)
 app.use("/api/reports", reportRoutes)
 app.use("/api/notifications", notificationRoutes)
 app.use("/api/dashboard", dashboardRoutes)
+app.use("/api/admin", adminRoutes)
 
 // Test endpoints
 app.get("/api/ping", (req, res) => res.json({ message: "pong" }));
@@ -75,7 +77,7 @@ app.post(
 app.use(express.static('./Frontend'))
 
 // Explicit pages for clean routing
-const pages = ["login", "register", "profile", "verify-email", "reset-password"];
+const pages = ["login", "register", "profile", "verify-email", "reset-password", "admin"];
 pages.forEach(page => {
     const fileName = (page === "login") ? "index.html" : `${page}.html`;
     app.get(`/${page}`, (req, res) => {
