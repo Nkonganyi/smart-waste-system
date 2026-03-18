@@ -24,4 +24,18 @@ router.get(
     authorize(["admin"]),
     dashboardController.getCollectorWorkload
 )
+// Report trends
+router.get(
+    "/trends",
+    authenticate,
+    authorize(["admin"]),
+    dashboardController.getReportTrends
+)
+// Collector performance stats
+router.get(
+    "/collector-performance",
+    authenticate,
+    authorize(["admin"]),
+    dashboardController.getCollectorPerformance
+)
 module.exports = router

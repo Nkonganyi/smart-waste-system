@@ -86,7 +86,7 @@ async function loadAssignedReports() {
     hideLoading()
 }
 
-// Update Route using OSRM Trip API
+// Update Route using backend optimization API
 async function updateRoute() {
     if (!collectorMap) return
     
@@ -94,16 +94,43 @@ async function updateRoute() {
     const reportsToVisit = allAssignedReports.filter(r => 
         r.status !== "completed" && r.latitude && r.longitude
     )
-    
+
     // Clear existing layers
     routeLayer.clearLayers()
     markersGroup.clearLayers()
+
+    const routeHint = document.getElementById("routeHint")
+    if (routeHint) routeHint.textContent = ""
     
     if (reportsToVisit.length === 0) return
     
-    // If only one report, just show a marker
-    if (reportsToVisit.length === 1) {
-        const r = reportsToVisit[0]
+    try {
+        const data = await apiRequest("/reports/assigned/route")
+        const ordered = Array.isArray(data?.route) ? data.route : []
+        const orderedReports = ordered.length > 0 ? ordered : reportsToVisit
+
+        drawOptimizedRoute(orderedReports, data?.geometry)
+        if (routeHint) {
+            if (orderedReports.length < 2) {
+                routeHint.textContent = "Add at least two assigned reports with coordinates to draw a route line."
+            } else if (data?.geometry_fallback) {
+                routeHint.textContent = "Route line fallback: showing straight lines (road geometry unavailable)."
+            }
+        }
+    } catch (err) {
+        console.error("updateRoute error:", err)
+        drawOptimizedRoute(reportsToVisit)
+        if (routeHint) {
+            routeHint.textContent = "Route line could not be generated. Showing simple order instead."
+        }
+    }
+}
+
+// Draw route line and numbered markers
+function drawOptimizedRoute(reports, geometry) {
+    const latlngs = reports.map(r => [r.latitude, r.longitude])
+    if (reports.length === 1) {
+        const r = reports[0]
         L.marker([r.latitude, r.longitude], {
             icon: L.divIcon({
                 className: 'custom-div-icon',
@@ -112,80 +139,24 @@ async function updateRoute() {
                 iconAnchor: [12, 12]
             })
         })
-        .bindPopup(`<b>Stop 1: ${r.title}</b><br>${r.location}`)
+        .bindPopup(`
+            <div style="font-family:inherit;">
+                <strong style="color:var(--primary-color);">Stop 1:</strong> ${r.title}<br>
+                <small style="color:var(--text-secondary);">${r.location || ""}</small><br>
+                <button class="btn btn-primary btn-sm btn-block" style="margin-top:8px; padding:4px 8px; font-size:0.8rem;" onclick="focusReportCard('${r.id}')">View Details</button>
+            </div>
+        `)
         .addTo(markersGroup)
-        
         collectorMap.setView([r.latitude, r.longitude], 15)
         return
     }
-
-    try {
-        // Construct coordinates string for OSRM: lng,lat;lng,lat
-        const coordsStr = reportsToVisit
-            .map(r => `${r.longitude},${r.latitude}`)
-            .join(";")
-            
-        const url = `https://router.project-osrm.org/trip/v1/driving/${coordsStr}?source=first&geometries=geojson&overview=full`
-        
-        const response = await fetch(url)
-        const data = await response.json()
-        
-        if (data.code !== "Ok") {
-            console.warn("OSRM error:", data.code)
-            // Fallback: draw straight lines if OSRM fails
-            drawSimpleRoute(reportsToVisit)
-            return
-        }
-
-        // 1. Draw Polyline
-        const routeGeoJSON = data.trips[0].geometry
-        L.geoJSON(routeGeoJSON, {
+    if (geometry && geometry.features && geometry.features[0]) {
+        L.geoJSON(geometry, {
             style: { color: "var(--primary-color)", weight: 5, opacity: 0.7, lineJoin: 'round' }
         }).addTo(routeLayer)
-
-        // 2. Draw Numbered Markers based on OSRM waypoint order
-        const waypoints = data.waypoints.sort((a, b) => a.waypoint_index - b.waypoint_index)
-        
-        waypoints.forEach((wp, index) => {
-            // Find the report that matches these coordinates (with small epsilon)
-            const report = reportsToVisit.find(r => 
-                Math.abs(r.longitude - wp.location[0]) < 0.0001 && 
-                Math.abs(r.latitude - wp.location[1]) < 0.0001
-            )
-            
-            if (report) {
-                L.marker([report.latitude, report.longitude], {
-                    icon: L.divIcon({
-                        className: 'custom-div-icon',
-                        html: `<div class="route-marker">${index + 1}</div>`,
-                        iconSize: [24, 24],
-                        iconAnchor: [12, 12]
-                    })
-                })
-                .bindPopup(`
-                    <div style="font-family:inherit;">
-                        <strong style="color:var(--primary-color);">Stop ${index + 1}:</strong> ${report.title}<br>
-                        <small style="color:var(--text-secondary);">${report.location}</small><br>
-                        <button class="btn btn-primary btn-sm btn-block" style="margin-top:8px; padding:4px 8px; font-size:0.8rem;" onclick="focusReportCard('${report.id}')">View Details</button>
-                    </div>
-                `)
-                .addTo(markersGroup)
-            }
-        })
-        
-        // Fit map to route
-        collectorMap.fitBounds(L.geoJSON(routeGeoJSON).getBounds(), { padding: [50, 50] })
-        
-    } catch (err) {
-        console.error("updateRoute error:", err)
-        drawSimpleRoute(reportsToVisit)
+    } else {
+        L.polyline(latlngs, { color: "var(--primary-color)", weight: 5, opacity: 0.7, lineJoin: 'round' }).addTo(routeLayer)
     }
-}
-
-// Fallback: Draw straight lines between points
-function drawSimpleRoute(reports) {
-    const latlngs = reports.map(r => [r.latitude, r.longitude])
-    L.polyline(latlngs, { color: "var(--text-tertiary)", dashArray: '10, 10' }).addTo(routeLayer)
     
     reports.forEach((r, i) => {
         L.marker([r.latitude, r.longitude], {
@@ -195,11 +166,23 @@ function drawSimpleRoute(reports) {
                 iconSize: [24, 24],
                 iconAnchor: [12, 12]
             })
-        }).addTo(markersGroup)
+        })
+        .bindPopup(`
+            <div style="font-family:inherit;">
+                <strong style="color:var(--primary-color);">Stop ${i + 1}:</strong> ${r.title}<br>
+                <small style="color:var(--text-secondary);">${r.location || ""}</small><br>
+                <button class="btn btn-primary btn-sm btn-block" style="margin-top:8px; padding:4px 8px; font-size:0.8rem;" onclick="focusReportCard('${r.id}')">View Details</button>
+            </div>
+        `)
+        .addTo(markersGroup)
     })
     
     if (latlngs.length > 0) {
-        collectorMap.fitBounds(L.polyline(latlngs).getBounds())
+        if (geometry && geometry.features && geometry.features[0]) {
+            collectorMap.fitBounds(L.geoJSON(geometry).getBounds(), { padding: [50, 50] })
+        } else {
+            collectorMap.fitBounds(L.polyline(latlngs).getBounds())
+        }
     }
 }
 
@@ -238,7 +221,7 @@ function renderReports() {
 
         // Determine available actions based on status
         let actionButtons = ""
-        if (report.status === "pending") {
+        if (report.status === "pending" || report.status === "approved") {
             actionButtons = `
                 <button class="btn btn-primary" onclick="startJob('${report.id}')">Start Job</button>
                 <button class="btn btn-secondary" onclick="rejectJob('${report.id}')">Reject</button>
@@ -299,7 +282,7 @@ function updateWorkSummary() {
     if (!summary) return
 
     const total = allAssignedReports.length
-    const pending = allAssignedReports.filter(r => r.status === "pending").length
+    const pending = allAssignedReports.filter(r => r.status === "pending" || r.status === "approved").length
     const active = allAssignedReports.filter(r => r.status === "in_progress").length
     const completed = allAssignedReports.filter(r => r.status === "completed").length
 

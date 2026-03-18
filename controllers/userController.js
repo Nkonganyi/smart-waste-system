@@ -91,3 +91,69 @@ exports.updateProfile = async (req, res) => {
         });
     }
 };
+
+/**
+ * Get all users (admin)
+ */
+exports.getAllUsers = async (req, res) => {
+    try {
+        const { data: users, error } = await supabase
+            .from("users")
+            .select("id, name, email, role, is_verified, is_suspended, phone, created_at")
+            .order("created_at", { ascending: false });
+
+        if (error) {
+            console.error("Error fetching users:", error);
+            return res.status(500).json({
+                error: "Fetch failed",
+                message: "Could not retrieve users"
+            });
+        }
+
+        return res.status(200).json(users);
+    } catch (error) {
+        console.error("getAllUsers exception:", error);
+        return res.status(500).json({
+            error: "Server error",
+            message: "An unexpected error occurred while fetching users"
+        });
+    }
+};
+
+/**
+ * Get a user by ID (admin)
+ */
+exports.getUserById = async (req, res) => {
+    try {
+        const userId = req.params.id;
+
+        const { data: users, error } = await supabase
+            .from("users")
+            .select("id, name, email, role, is_verified, is_suspended, phone, created_at")
+            .eq("id", userId)
+            .limit(1);
+
+        if (error) {
+            console.error("Error fetching user by ID:", error);
+            return res.status(500).json({
+                error: "Fetch failed",
+                message: "Could not retrieve user"
+            });
+        }
+
+        if (!users || users.length === 0) {
+            return res.status(404).json({
+                error: "Not found",
+                message: "User not found"
+            });
+        }
+
+        return res.status(200).json(users[0]);
+    } catch (error) {
+        console.error("getUserById exception:", error);
+        return res.status(500).json({
+            error: "Server error",
+            message: "An unexpected error occurred while fetching user"
+        });
+    }
+};

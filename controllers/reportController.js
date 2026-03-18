@@ -1,5 +1,6 @@
 const supabase = require("../config/supabase")
 const { geocode, getLocationSuggestions } = require("../utils/geocodingService")
+const { optimizeRoute, getRouteGeometry } = require("../utils/routeService")
 
 // Helper: Calculate distance between two points in meters (Haversine formula)
 function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -15,6 +16,152 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
     return R * c; // Distance in meters
+}
+
+async function cascadeReportStatus(reportId, updates) {
+    const { data: report, error: reportError } = await supabase
+        .from("reports")
+        .select("id, parent_report_id")
+        .eq("id", reportId)
+        .single()
+
+    if (reportError || !report) {
+        return { error: reportError || new Error("Report not found") }
+    }
+
+    const mainId = report.parent_report_id || report.id
+    const { error: updateError } = await supabase
+        .from("reports")
+        .update(updates)
+        .or(`id.eq.${mainId},parent_report_id.eq.${mainId}`)
+
+    return { error: updateError }
+}
+
+async function getReportGroupIds(reportId) {
+    const { data: report, error: reportError } = await supabase
+        .from("reports")
+        .select("id, parent_report_id")
+        .eq("id", reportId)
+        .single()
+
+    if (reportError || !report) {
+        return { error: reportError || new Error("Report not found"), reportIds: [] }
+    }
+
+    const mainId = report.parent_report_id || report.id
+    const { data: groupReports, error: groupError } = await supabase
+        .from("reports")
+        .select("id")
+        .or(`id.eq.${mainId},parent_report_id.eq.${mainId}`)
+
+    if (groupError) {
+        return { error: groupError, reportIds: [] }
+    }
+
+    const reportIds = (groupReports || []).map(item => item.id)
+    return { error: null, reportIds }
+}
+
+async function getReportHierarchyIds(reportId) {
+    const { data: report, error: reportError } = await supabase
+        .from("reports")
+        .select("id, parent_report_id")
+        .eq("id", reportId)
+        .single()
+
+    if (reportError || !report) {
+        return { error: reportError || new Error("Report not found"), reportIds: [] }
+    }
+
+    const mainId = report.parent_report_id || report.id
+    const seen = new Set([mainId])
+    let frontier = [mainId]
+
+    while (frontier.length > 0) {
+        const { data: children, error: childError } = await supabase
+            .from("reports")
+            .select("id")
+            .in("parent_report_id", frontier)
+
+        if (childError) {
+            return { error: childError, reportIds: [] }
+        }
+
+        const next = []
+        for (const child of children || []) {
+            if (!seen.has(child.id)) {
+                seen.add(child.id)
+                next.push(child.id)
+            }
+        }
+        frontier = next
+    }
+
+    return { error: null, reportIds: Array.from(seen) }
+}
+
+async function deleteReportGroup(reportId, includeDuplicates) {
+    const { data: report, error: reportError } = await supabase
+        .from("reports")
+        .select("id, parent_report_id")
+        .eq("id", reportId)
+        .single()
+
+    if (reportError || !report) {
+        return { error: reportError || new Error("Report not found") }
+    }
+
+    const mainId = report.parent_report_id || report.id
+
+    if (!includeDuplicates) {
+        if (!report.parent_report_id) {
+            await supabase
+                .from("reports")
+                .update({ parent_report_id: null })
+                .eq("parent_report_id", report.id)
+        }
+
+        await supabase
+            .from("assignments")
+            .delete()
+            .eq("report_id", report.id)
+
+        const { error: deleteError } = await supabase
+            .from("reports")
+            .delete()
+            .eq("id", report.id)
+
+        return { error: deleteError }
+    }
+
+    const { reportIds, error: groupError } = await getReportHierarchyIds(mainId)
+    if (groupError) {
+        return { error: groupError }
+    }
+
+    const childIds = reportIds.filter(id => id !== mainId)
+
+    const { error: detachError } = await supabase
+        .from("reports")
+        .update({ parent_report_id: null })
+        .in("id", childIds)
+
+    if (detachError) {
+        return { error: detachError }
+    }
+
+    await supabase
+        .from("assignments")
+        .delete()
+        .in("report_id", reportIds)
+
+    const { error: deleteError } = await supabase
+        .from("reports")
+        .delete()
+        .in("id", reportIds)
+
+    return { error: deleteError }
 }
 
 // Create a new report (authenticated users)
@@ -262,10 +409,7 @@ exports.approveReport = async (req, res) => {
             return res.status(400).json({ error: "Only pending reports can be approved" })
         }
 
-        const { error: updateError } = await supabase
-            .from("reports")
-            .update({ status: "approved" })
-            .eq("id", report_id)
+        const { error: updateError } = await cascadeReportStatus(report_id, { status: "approved" })
 
         if (updateError) {
             return res.status(400).json({ error: updateError.message })
@@ -311,10 +455,7 @@ exports.rejectReport = async (req, res) => {
             return res.status(400).json({ error: `Cannot reject a report with status "${report.status}"` })
         }
 
-        const { error: updateError } = await supabase
-            .from("reports")
-            .update({ status: "rejected" })
-            .eq("id", report_id)
+        const { error: updateError } = await cascadeReportStatus(report_id, { status: "rejected" })
 
         if (updateError) {
             return res.status(400).json({ error: updateError.message })
@@ -341,6 +482,41 @@ exports.rejectReport = async (req, res) => {
     }
 }
 
+// Restore rejected report (admin only)
+exports.restoreReport = async (req, res) => {
+    try {
+        const { report_id } = req.body
+
+        if (!report_id) {
+            return res.status(400).json({ error: "report_id is required" })
+        }
+
+        const { data: report, error: reportError } = await supabase
+            .from("reports")
+            .select("id, status")
+            .eq("id", report_id)
+            .single()
+
+        if (reportError || !report) {
+            return res.status(404).json({ error: "Report not found" })
+        }
+
+        if (report.status !== "rejected") {
+            return res.status(400).json({ error: "Only rejected reports can be restored" })
+        }
+
+        const { error: updateError } = await cascadeReportStatus(report_id, { status: "pending" })
+        if (updateError) {
+            return res.status(400).json({ error: updateError.message })
+        }
+
+        res.json({ message: "Report restored successfully" })
+    } catch (err) {
+        console.error("restoreReport exception:", err)
+        res.status(500).json({ error: "Server error" })
+    }
+}
+
 // Assign collector to report (admin only)
 exports.assignCollector = async (req, res) => {
     try {
@@ -363,18 +539,24 @@ exports.assignCollector = async (req, res) => {
             return res.status(400).json({ error: "Report must be approved before assigning a collector" })
         }
 
+        const { reportIds, error: groupError } = await getReportGroupIds(report_id)
+        if (groupError) {
+            return res.status(400).json({ error: groupError.message })
+        }
+
         const { error: deleteError } = await supabase
             .from("assignments")
             .delete()
-            .eq("report_id", report_id)
+            .in("report_id", reportIds)
 
         if (deleteError) {
             return res.status(400).json({ error: deleteError.message })
         }
 
+        const assignmentRows = reportIds.map(id => ({ report_id: id, collector_id }))
         const { error } = await supabase
             .from("assignments")
-            .insert([{ report_id, collector_id }])
+            .insert(assignmentRows)
 
         if (error) {
             return res.status(400).json({ error: error.message })
@@ -414,10 +596,7 @@ exports.updateReportStatus = async (req, res) => {
             return res.status(403).json({ error: "You are not assigned to this report" })
         }
 
-        const { error } = await supabase
-            .from("reports")
-            .update({ status })
-            .eq("id", report_id)
+        const { error } = await cascadeReportStatus(report_id, { status })
 
         if (error) {
             return res.status(400).json({ error: error.message })
@@ -460,10 +639,15 @@ exports.getMyReports = async (req, res) => {
                 return res.status(400).json({ error: error.message })
             }
 
-            const reports = data.map(item => ({
-                ...item.reports,
-                assigned_to: req.user.id
-            }))
+            const reports = data.map(item => {
+                const report = item.reports || {}
+                const normalizedStatus = report.status === "approved" ? "pending" : report.status
+                return {
+                    ...report,
+                    status: normalizedStatus,
+                    assigned_to: req.user.id
+                }
+            })
 
             return res.json(reports)
         }
@@ -518,14 +702,65 @@ exports.getAssignedReports = async (req, res) => {
             return res.status(400).json({ error: error.message })
         }
 
-        const reports = data.map(item => ({
-            ...item.reports,
-            assigned_to: collectorId
-        }))
+        const reports = data.map(item => {
+            const report = item.reports || {}
+            const normalizedStatus = report.status === "approved" ? "pending" : report.status
+            return {
+                ...report,
+                status: normalizedStatus,
+                assigned_to: collectorId
+            }
+        })
 
         res.json(reports)
     } catch (err) {
         console.error("getAssignedReports exception:", err)
+        res.status(500).json({ error: "Server error" })
+    }
+}
+
+// Get optimized route for collector assignments
+exports.getCollectorOptimizedRoute = async (req, res) => {
+    try {
+        const collectorId = req.user.id
+
+        const { data, error } = await supabase
+            .from("assignments")
+            .select("report_id, reports(id, title, latitude, longitude, status)")
+            .eq("collector_id", collectorId)
+
+        if (error) {
+            return res.status(400).json({ error: error.message })
+        }
+
+        const reports = (data || [])
+            .map(item => {
+                const report = item.reports || {}
+                const normalizedStatus = report.status === "approved" ? "pending" : report.status
+                return { ...report, status: normalizedStatus }
+            })
+            .filter(report => report && report.status !== "completed" && report.latitude && report.longitude)
+
+        const locations = reports.map(report => ({
+            id: report.id,
+            title: report.title,
+            latitude: report.latitude,
+            longitude: report.longitude,
+            priority_score: 0
+        }))
+
+        const { ordered, fallback } = await optimizeRoute(locations)
+        const geometryResult = await getRouteGeometry(ordered)
+
+        res.json({
+            route: ordered,
+            fallback,
+            total: locations.length,
+            geometry: geometryResult.geometry,
+            geometry_fallback: geometryResult.fallback
+        })
+    } catch (err) {
+        console.error("getCollectorOptimizedRoute error:", err)
         res.status(500).json({ error: "Server error" })
     }
 }
@@ -578,10 +813,7 @@ exports.startReport = async (req, res) => {
             return res.status(403).json({ error: "You are not assigned to this report" })
         }
 
-        const { error } = await supabase
-            .from("reports")
-            .update({ status: "in_progress" })
-            .eq("id", report_id)
+        const { error } = await cascadeReportStatus(report_id, { status: "in_progress" })
 
         if (error) {
             return res.status(400).json({ error: error.message })
@@ -615,14 +847,11 @@ exports.completeReport = async (req, res) => {
             return res.status(403).json({ error: "You are not assigned to this report" })
         }
 
-        const { error } = await supabase
-            .from("reports")
-            .update({
-                status: "completed",
-                completed_at: new Date(),
-                completion_image_url
-            })
-            .eq("id", report_id)
+        const { error } = await cascadeReportStatus(report_id, {
+            status: "completed",
+            completed_at: new Date(),
+            completion_image_url
+        })
 
         if (error) {
             return res.status(400).json({ error: error.message })
@@ -668,10 +897,7 @@ exports.rejectAssignment = async (req, res) => {
             return res.status(400).json({ error: deleteError.message })
         }
 
-        const { error: updateError } = await supabase
-            .from("reports")
-            .update({ status: "pending" })
-            .eq("id", report_id)
+        const { error: updateError } = await cascadeReportStatus(report_id, { status: "pending" })
 
         if (updateError) {
             return res.status(400).json({ error: updateError.message })
@@ -680,6 +906,27 @@ exports.rejectAssignment = async (req, res) => {
         res.json({ message: "Assignment rejected successfully" })
     } catch (err) {
         console.error("rejectAssignment exception:", err)
+        res.status(500).json({ error: "Server error" })
+    }
+}
+
+// Delete report (admin only)
+exports.deleteReport = async (req, res) => {
+    try {
+        const { report_id, delete_duplicates } = req.body
+
+        if (!report_id) {
+            return res.status(400).json({ error: "report_id is required" })
+        }
+
+        const { error: deleteError } = await deleteReportGroup(report_id, Boolean(delete_duplicates))
+        if (deleteError) {
+            return res.status(400).json({ error: deleteError.message })
+        }
+
+        res.json({ message: "Report deleted successfully" })
+    } catch (err) {
+        console.error("deleteReport exception:", err)
         res.status(500).json({ error: "Server error" })
     }
 }

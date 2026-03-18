@@ -20,6 +20,13 @@ router.get(
     authorize(["collector"]),
     reportController.getAssignedReports
 )
+// Get optimized route for collector assignments
+router.get(
+    "/assigned/route",
+    authenticate,
+    authorize(["collector"]),
+    reportController.getCollectorOptimizedRoute
+)
 // Assign collector to report (admin only)
 router.post(
     "/assign",
@@ -85,6 +92,20 @@ router.put(
     },
     authorize(["admin"]),
     reportController.rejectReport
+)
+// Restore rejected report (admin only)
+router.put(
+    "/restore",
+    authenticate,
+    authorize(["admin"]),
+    reportController.restoreReport
+)
+// Delete report (admin only)
+router.delete(
+    "/delete",
+    authenticate,
+    authorize(["admin"]),
+    reportController.deleteReport
 )
 // Reject report assignment (collector only)
 router.put(

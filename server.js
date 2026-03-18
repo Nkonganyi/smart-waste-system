@@ -15,6 +15,8 @@ const notificationRoutes = require("./routes/notificationRoutes")
 const dashboardRoutes = require("./routes/dashboardRoutes")
 const userRoutes = require("./routes/userRoutes")
 const adminRoutes = require("./routes/adminRoutes")
+const routeRoutes = require("./routes/routeRoutes")
+const schedulingRoutes = require("./routes/schedulingRoutes")
 
 const app = express()
 const PORT = process.env.PORT || 5000
@@ -39,6 +41,8 @@ app.use("/api/reports", reportRoutes)
 app.use("/api/notifications", notificationRoutes)
 app.use("/api/dashboard", dashboardRoutes)
 app.use("/api/admin", adminRoutes)
+app.use("/api/routes", routeRoutes)
+app.use("/api/schedule", schedulingRoutes)
 
 // Test endpoints
 app.get("/api/ping", (req, res) => res.json({ message: "pong" }));
@@ -73,11 +77,16 @@ app.post(
 /*                               STATIC ASSETS                                */
 /* -------------------------------------------------------------------------- */
 
+// Landing page
+app.get("/", (req, res) => {
+    res.sendFile(path.join(__dirname, "Frontend", "Home.html"));
+});
+
 // Serve static files AFTER API routes to prevent shadowing
 app.use(express.static('./Frontend'))
 
 // Explicit pages for clean routing
-const pages = ["login", "register", "profile", "verify-email", "reset-password", "admin"];
+const pages = ["login", "register", "profile", "verify-email", "reset-password", "admin", "home", "citizen", "collector"];
 pages.forEach(page => {
     const fileName = (page === "login") ? "index.html" : `${page}.html`;
     app.get(`/${page}`, (req, res) => {

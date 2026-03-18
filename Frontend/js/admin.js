@@ -88,6 +88,10 @@ function selectTab(tabId) {
         loadMapData()
     } else if (tabId === "reports") {
         loadAllData()
+    } else if (tabId === "schedule") {
+        loadPriorityQueue()
+    } else if (tabId === "citizens") {
+        loadCitizensTab()
     } else if (tabId === "collectors") {
         loadCollectorsTab()
     }
@@ -151,11 +155,98 @@ async function loadAnalytics() {
         if (Array.isArray(reportsData)) allReports = reportsData
         
         initCharts(locationsData, collectorsData)
+        await loadReportTrends()
     } catch (err) {
         console.error("Analytics error:", err)
         showToast("Failed to load analytics data", "error")
     }
     hideLoading()
+}
+
+async function loadReportTrends() {
+    const daysInput = document.getElementById("trendDays")
+    const daysVal = daysInput ? parseInt(daysInput.value, 10) : NaN
+    const days = Number.isFinite(daysVal) && daysVal > 0 ? daysVal : 30
+
+    try {
+        const hintEl = document.getElementById("trendHint")
+        if (hintEl) hintEl.textContent = "Loading trend data..."
+
+        const data = await apiRequest(`/dashboard/trends?days=${days}`)
+        const dailyCounts = Array.isArray(data?.daily_counts) ? data.daily_counts : []
+        const status = data?.status_breakdown || {}
+        const periodDays = Number.isFinite(data?.period_days) ? data.period_days : days
+
+        const countMap = dailyCounts.reduce((acc, item) => {
+            if (item?.date) acc[item.date] = item.count || 0
+            return acc
+        }, {})
+
+        const labels = []
+        const values = []
+        const now = new Date()
+        const start = new Date(now.getTime() - (periodDays - 1) * 24 * 60 * 60 * 1000)
+
+        for (let i = 0; i < periodDays; i += 1) {
+            const d = new Date(start.getTime() + i * 24 * 60 * 60 * 1000)
+            const key = d.toISOString().slice(0, 10)
+            labels.push(key)
+            values.push(countMap[key] || 0)
+        }
+
+        const ctx = document.getElementById("trendChart")
+        if (ctx) {
+            if (charts.trend) charts.trend.destroy()
+            charts.trend = new Chart(ctx, {
+                type: "line",
+                data: {
+                    labels,
+                    datasets: [{
+                        label: "Reports per day",
+                        data: values,
+                        borderColor: "#66BB6A",
+                        backgroundColor: "rgba(102, 187, 106, 0.15)",
+                        tension: 0.25,
+                        fill: true,
+                        pointRadius: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { ticks: { maxTicksLimit: 6 } },
+                        y: { beginAtZero: true, ticks: { precision: 0 } }
+                    }
+                }
+            })
+        }
+
+        const breakdownEl = document.getElementById("trendStatusBreakdown")
+        if (breakdownEl) {
+            breakdownEl.innerHTML = `
+                <div style="font-weight:600; margin-bottom:0.5rem;">Status Breakdown</div>
+                <div>Pending: <strong>${status.pending || 0}</strong></div>
+                <div>Approved: <strong>${status.approved || 0}</strong></div>
+                <div>In Progress: <strong>${status.in_progress || 0}</strong></div>
+                <div>Completed: <strong>${status.completed || 0}</strong></div>
+                <div>Rejected: <strong>${status.rejected || 0}</strong></div>
+                <div style="margin-top:0.5rem; color:var(--text-tertiary); font-size:0.85rem;">Last ${periodDays} days</div>
+            `
+        }
+
+        const totalReports = values.reduce((sum, v) => sum + v, 0)
+        if (hintEl) {
+            hintEl.textContent = totalReports === 0
+                ? "No reports in this time window yet."
+                : ""
+        }
+    } catch (err) {
+        console.error("Report trends error:", err)
+        showToast("Failed to load report trends", "error")
+        const hintEl = document.getElementById("trendHint")
+        if (hintEl) hintEl.textContent = "Could not load trend data."
+    }
 }
 
 function initCharts(locationsData, collectorsData) {
@@ -425,6 +516,28 @@ function formatStatus(status) {
     return status.charAt(0).toUpperCase() + status.slice(1)
 }
 
+function getWorkflowHint(report) {
+    if (!report || !report.status) return ""
+    if (report.status === "pending") {
+        return "Pending approval. Approve or reject this report before assignment."
+    }
+    if (report.status === "approved") {
+        return report.assigned_to
+            ? "Approved and assigned. Collector can start work."
+            : "Approved. Assign a collector to start work."
+    }
+    if (report.status === "in_progress") {
+        return "In progress. Collector is working on this report."
+    }
+    if (report.status === "completed") {
+        return "Completed. Cleanup is verified."
+    }
+    if (report.status === "rejected") {
+        return "Rejected. No further action is required."
+    }
+    return ""
+}
+
 // -------------------------------------------------------------
 // MODAL LOGIC & ASSIGNMENT
 console.log("Admin Dashboard JS v2.0 Loaded")
@@ -491,12 +604,14 @@ function openReportModal(reportId, initialTab = 'details') {
         dupList.innerHTML = `<div style="padding:2rem; text-align:center; color:var(--text-tertiary);">No duplicate reports linked to this issue.</div>`
     }
 
+    const workflowHint = getWorkflowHint(report)
     document.getElementById("modalDescription").innerHTML = `
         <p style="color:var(--text-secondary); margin-top:0.5rem;">${report.description}</p>
         <div style="margin-top:1rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
             <span class="badge badge-status ${report.status}">${formatStatus(report.status)}</span>
             <span class="badge badge-priority ${report.priority}">${report.priority} Priority</span>
         </div>
+        ${workflowHint ? `<div style="margin-top:0.75rem; padding:0.6rem 0.8rem; border-left:4px solid var(--primary-color); background:rgba(76,175,80,0.08); color:var(--text-secondary); font-size:0.85rem;">${workflowHint}</div>` : ""}
     `
     
     document.getElementById("modalImage").innerHTML = report.image_url 
@@ -512,8 +627,42 @@ function openReportModal(reportId, initialTab = 'details') {
             <tr style="border-bottom:1px solid var(--light-bg);"><td style="padding:0.75rem 0; color:var(--text-tertiary);">Created On</td><td style="padding:0.75rem 0;">${new Date(report.created_at).toLocaleString()}</td></tr>
     `
     
-    // Add assignment info or assignment dropdown
+    const actionBtn = document.getElementById("modalActionBtn")
+    const rejectBtn = document.getElementById("modalRejectBtn")
+
+    if (actionBtn) actionBtn.style.display = "none"
+    if (rejectBtn) rejectBtn.style.display = "none"
+
+    // Pending reports: allow approve/reject
     if (report.status === "pending") {
+        if (actionBtn) {
+            actionBtn.textContent = "Approve Report"
+            actionBtn.style.display = "inline-block"
+            actionBtn.onclick = () => approveReportFromModal()
+        }
+        if (rejectBtn) {
+            rejectBtn.textContent = "Reject Report"
+            rejectBtn.style.display = "inline-block"
+            rejectBtn.onclick = () => rejectReportFromModal()
+        }
+    }
+
+    // Rejected reports: allow restore/delete
+    if (report.status === "rejected") {
+        if (actionBtn) {
+            actionBtn.textContent = "Restore Report"
+            actionBtn.style.display = "inline-block"
+            actionBtn.onclick = () => restoreReportFromModal()
+        }
+        if (rejectBtn) {
+            rejectBtn.textContent = "Delete Report"
+            rejectBtn.style.display = "inline-block"
+            rejectBtn.onclick = () => deleteReportFromModal()
+        }
+    }
+
+    // Approved reports: allow assignment + reject
+    if (report.status === "approved") {
         // Build collector dropdown
         let selectHtml = `<select id="modalCollectorSelect" class="form-control" style="max-width:250px; font-size:0.85rem; padding:0.4rem;">
             <option value="">-- Select a collector --</option>`
@@ -521,22 +670,25 @@ function openReportModal(reportId, initialTab = 'details') {
             selectHtml += `<option value="${c.id}">${c.name} (${c.email})</option>`
         })
         selectHtml += `</select>`
-        
+
         detailsHtml += `<tr><td style="padding:0.75rem 0; color:var(--text-tertiary);">Assign To</td><td style="padding:0.75rem 0;">${selectHtml}</td></tr>`
-        
-        // Setup assign button
-        const btn = document.getElementById("modalActionBtn")
-        btn.textContent = "Assign Collector"
-        btn.style.display = "inline-block"
-        btn.onclick = () => assignCollectorFromModal()
-        
-    } else {
-        // Show assigned collector text
+
+        if (actionBtn) {
+            actionBtn.textContent = "Assign Collector"
+            actionBtn.style.display = "inline-block"
+            actionBtn.onclick = () => assignCollectorFromModal()
+        }
+        if (rejectBtn) {
+            rejectBtn.textContent = "Reject Report"
+            rejectBtn.style.display = "inline-block"
+            rejectBtn.onclick = () => rejectReportFromModal()
+        }
+    }
+
+    // Show assigned collector info for non-pending reports if available
+    if (report.status !== "pending") {
         const col = allCollectors.find(c => c.id === report.assigned_to)
         detailsHtml += `<tr><td style="padding:0.75rem 0; color:var(--text-tertiary);">Assigned To</td><td style="padding:0.75rem 0; font-weight:600; color:var(--primary-color);">${col ? col.name : 'Unknown'}</td></tr>`
-        
-        // Hide assign button
-        document.getElementById("modalActionBtn").style.display = "none"
     }
 
     // Add completion info if completed
@@ -596,15 +748,287 @@ async function assignCollectorFromModal() {
     hideLoading()
 }
 
+async function approveReportFromModal() {
+    if (!currentModalReportId) return
+    if (!confirm("Approve this report? It will be ready for assignment.")) return
+
+    showLoading()
+    try {
+        await apiRequest("/reports/approve", "PUT", { report_id: currentModalReportId })
+        showToast("Report approved", "success")
+        closeReportModal()
+        await loadAllData()
+    } catch (err) {
+        showToast("Failed to approve report", "error")
+    }
+    hideLoading()
+}
+
+async function rejectReportFromModal() {
+    if (!currentModalReportId) return
+    const reason = prompt("Reason for rejection (optional):") || ""
+    if (!confirm("Reject this report?")) return
+
+    showLoading()
+    try {
+        await apiRequest("/reports/reject", "PUT", { report_id: currentModalReportId, reason })
+        showToast("Report rejected", "success")
+        closeReportModal()
+        await loadAllData()
+    } catch (err) {
+        showToast("Failed to reject report", "error")
+    }
+    hideLoading()
+}
+
+async function restoreReportFromModal() {
+    if (!currentModalReportId) return
+    if (!confirm("Restore this report to pending?")) return
+
+    showLoading()
+    try {
+        await apiRequest("/reports/restore", "PUT", { report_id: currentModalReportId })
+        showToast("Report restored to pending", "success")
+        closeReportModal()
+        await loadAllData()
+    } catch (err) {
+        showToast("Failed to restore report", "error")
+    }
+    hideLoading()
+}
+
+async function deleteReportFromModal() {
+    if (!currentModalReportId) return
+
+    const deleteAll = confirm("Delete this report and all its duplicates?")
+    if (!deleteAll) {
+        const deleteOnly = confirm("Delete only this report?")
+        if (!deleteOnly) return
+    }
+
+    showLoading()
+    try {
+        await apiRequest("/reports/delete", "DELETE", {
+            report_id: currentModalReportId,
+            delete_duplicates: deleteAll
+        })
+        showToast("Report deleted", "success")
+        closeReportModal()
+        await loadAllData()
+    } catch (err) {
+        showToast("Failed to delete report", "error")
+    }
+    hideLoading()
+}
+
+// -------------------------------------------------------------
+// PRIORITY QUEUE
+// -------------------------------------------------------------
+async function loadPriorityQueue() {
+    showLoading()
+    try {
+        const reports = await apiRequest("/schedule/prioritized")
+        const tbody = document.getElementById("priorityTable")
+        if (!tbody) { hideLoading(); return }
+
+        tbody.innerHTML = ""
+
+        if (!Array.isArray(reports) || reports.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" style="padding:1rem; text-align:center; color:var(--text-secondary);">
+                        No prioritized reports yet. Only main reports with status "approved" or "pending" appear here.
+                    </td>
+                </tr>
+            `
+            hideLoading()
+            return
+        }
+
+        reports.forEach(report => {
+            const tr = document.createElement("tr")
+            tr.style.borderBottom = "1px solid var(--light-bg)"
+
+            const created = report.created_at ? new Date(report.created_at).toLocaleString() : "N/A"
+            const duplicates = Number.isFinite(report.duplicate_count) ? report.duplicate_count : 0
+            const score = Number.isFinite(report.priority_score) ? report.priority_score : 0
+
+            tr.innerHTML = `
+                <td style="padding: 1rem;"><div style="font-weight:600;">${report.title || "Untitled"}</div><div style="font-size:0.8rem; color:var(--text-tertiary);">ID: ${(report.id || "").toString().substring(0,8)}</div></td>
+                <td style="padding: 1rem; color:var(--text-secondary);">${report.location || "N/A"}</td>
+                <td style="padding: 1rem; color:var(--text-secondary);">${report.priority || "N/A"}</td>
+                <td style="padding: 1rem; color:var(--text-secondary);">${formatStatus(report.status || "N/A")}</td>
+                <td style="padding: 1rem; text-align:center;">${duplicates}</td>
+                <td style="padding: 1rem; text-align:center;">${score}</td>
+                <td style="padding: 1rem; color:var(--text-secondary);">${created}</td>
+            `
+            tbody.appendChild(tr)
+        })
+    } catch (err) {
+        console.error("Priority queue error:", err)
+        showToast("Failed to load priority queue", "error")
+    }
+    hideLoading()
+}
+
+// -------------------------------------------------------------
+// CITIZENS MANAGEMENT
+// -------------------------------------------------------------
+async function loadCitizensTab() {
+    showLoading()
+    try {
+        const users = await apiRequest("/admin/users")
+        const tbody = document.getElementById("citizensTable")
+        if (!tbody) { hideLoading(); return }
+
+        tbody.innerHTML = ""
+
+        const citizens = Array.isArray(users)
+            ? users.filter(user => user.role === "citizen")
+            : []
+
+        if (citizens.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8" style="padding:1rem; text-align:center; color:var(--text-secondary);">No citizens found.</td></tr>`
+            hideLoading()
+            return
+        }
+
+        citizens.forEach(user => {
+            const tr = document.createElement("tr")
+            tr.style.borderBottom = "1px solid var(--light-bg)"
+
+            const verified = user.is_verified ? "Yes" : "No"
+            const suspended = user.is_suspended ? "Yes" : "No"
+            const created = user.created_at ? new Date(user.created_at).toLocaleString() : "—"
+            const canVerify = !user.is_verified
+            const actionSuspendLabel = user.is_suspended ? "Reactivate" : "Suspend"
+            const actionSuspendClass = user.is_suspended ? "btn-secondary" : "btn-primary"
+
+            tr.innerHTML = `
+                <td style="padding: 1rem;"><div style="font-weight:600;">${user.name || "Unknown"}</div><div style="font-size:0.8rem; color:var(--text-tertiary);">ID: ${(user.id || "").toString().substring(0,8)}</div></td>
+                <td style="padding: 1rem; color:var(--text-secondary);">${user.email || "—"}</td>
+                <td style="padding: 1rem; color:var(--text-secondary);">${user.role || "—"}</td>
+                <td style="padding: 1rem; text-align:center;">${verified}</td>
+                <td style="padding: 1rem; text-align:center;">${suspended}</td>
+                <td style="padding: 1rem; color:var(--text-secondary);">${user.phone || "—"}</td>
+                <td style="padding: 1rem; color:var(--text-secondary);">${created}</td>
+                <td style="padding: 1rem; text-align:center;">
+                    <button class="btn btn-secondary" style="padding:0.3rem 0.6rem; font-size:0.8rem; margin-right:0.4rem;" onclick="openUserModal('${user.id}')">View</button>
+                    ${canVerify ? `<button class="btn btn-primary" style="padding:0.3rem 0.6rem; font-size:0.8rem; margin-right:0.4rem;" onclick="verifyUser('${user.id}')">Verify</button>` : ""}
+                    <button class="btn ${actionSuspendClass}" style="padding:0.3rem 0.6rem; font-size:0.8rem;" onclick="toggleUserSuspend('${user.id}', ${user.is_suspended ? "false" : "true"})">${actionSuspendLabel}</button>
+                </td>
+            `
+            if (false) {
+                const cells = tr.querySelectorAll("td")
+            if (cells.length >= 7) {
+                cells[3].textContent = totalCompleted
+                cells[4].textContent = totalAssigned
+                cells[5].innerHTML = `
+                    ${rate !== null ? `${rate}%` : "â€”"}
+                    <div style="font-size:0.75rem; color:var(--text-tertiary); margin-top:0.25rem;">
+                        ${avgHours !== null ? `${avgHours}h avg` : "â€”"}
+                    </div>
+                `
+            }
+            }
+            tbody.appendChild(tr)
+        })
+    } catch (err) {
+        console.error("Citizens tab error:", err)
+        showToast("Failed to load citizens", "error")
+    }
+    hideLoading()
+}
+
+async function openUserModal(userId) {
+    showLoading()
+    try {
+        const user = await apiRequest(`/admin/users/${userId}`)
+        const modal = document.getElementById("userModal")
+        const body = document.getElementById("userModalBody")
+        const title = document.getElementById("userModalTitle")
+        if (!modal || !body || !title) { hideLoading(); return }
+
+        title.textContent = user.name ? `${user.name} (${user.role || "user"})` : "User Details"
+        body.innerHTML = `
+            <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+                <tr style="border-bottom:1px solid var(--light-bg);"><td style="padding:0.75rem 0; color:var(--text-tertiary); width:120px;">User ID</td><td style="padding:0.75rem 0; font-family:monospace;">${user.id}</td></tr>
+                <tr style="border-bottom:1px solid var(--light-bg);"><td style="padding:0.75rem 0; color:var(--text-tertiary);">Name</td><td style="padding:0.75rem 0;">${user.name || "—"}</td></tr>
+                <tr style="border-bottom:1px solid var(--light-bg);"><td style="padding:0.75rem 0; color:var(--text-tertiary);">Email</td><td style="padding:0.75rem 0;">${user.email || "—"}</td></tr>
+                <tr style="border-bottom:1px solid var(--light-bg);"><td style="padding:0.75rem 0; color:var(--text-tertiary);">Role</td><td style="padding:0.75rem 0;">${user.role || "—"}</td></tr>
+                <tr style="border-bottom:1px solid var(--light-bg);"><td style="padding:0.75rem 0; color:var(--text-tertiary);">Verified</td><td style="padding:0.75rem 0;">${user.is_verified ? "Yes" : "No"}</td></tr>
+                <tr style="border-bottom:1px solid var(--light-bg);"><td style="padding:0.75rem 0; color:var(--text-tertiary);">Suspended</td><td style="padding:0.75rem 0;">${user.is_suspended ? "Yes" : "No"}</td></tr>
+                <tr style="border-bottom:1px solid var(--light-bg);"><td style="padding:0.75rem 0; color:var(--text-tertiary);">Phone</td><td style="padding:0.75rem 0;">${user.phone || "—"}</td></tr>
+                <tr><td style="padding:0.75rem 0; color:var(--text-tertiary);">Created</td><td style="padding:0.75rem 0;">${user.created_at ? new Date(user.created_at).toLocaleString() : "—"}</td></tr>
+            </table>
+        `
+        modal.style.display = "block"
+        document.body.style.overflow = "hidden"
+    } catch (err) {
+        console.error("User modal error:", err)
+        showToast("Failed to load user details", "error")
+    }
+    hideLoading()
+}
+
+function closeUserModal(event) {
+    if (event && event.target.id !== "userModal") return
+    const modal = document.getElementById("userModal")
+    if (modal) modal.style.display = "none"
+    document.body.style.overflow = "auto"
+}
+
+async function verifyUser(userId) {
+    if (!confirm("Verify this user's email?")) return
+    showLoading()
+    try {
+        await apiRequest("/admin/verify-user", "POST", { userId })
+        showToast("User verified", "success")
+        await loadCitizensTab()
+    } catch (err) {
+        console.error("verifyUser error:", err)
+        showToast("Failed to verify user", "error")
+    }
+    hideLoading()
+}
+
+async function toggleUserSuspend(userId, suspend) {
+    const action = suspend ? "suspend" : "unsuspend"
+    const confirmMsg = suspend
+        ? "Suspend this user? They will not be able to log in."
+        : "Reactivate this user?"
+
+    if (!confirm(confirmMsg)) return
+    showLoading()
+    try {
+        await apiRequest(`/admin/${action}-user`, "POST", { userId })
+        showToast(suspend ? "User suspended" : "User reactivated", "success")
+        await loadCitizensTab()
+    } catch (err) {
+        console.error("toggleUserSuspend error:", err)
+        showToast(`Failed to ${action} user`, "error")
+    }
+    hideLoading()
+}
+
 // -------------------------------------------------------------
 // COLLECTORS MANAGEMENT (Tab 4)
 // -------------------------------------------------------------
 async function loadCollectorsTab() {
     showLoading()
     try {
-        // Make sure we have the latest list
-        const res = await apiRequest("/reports/collectors")
+        // Make sure we have the latest list + performance stats
+        const [res, perfRes] = await Promise.all([
+            apiRequest("/reports/collectors"),
+            apiRequest("/dashboard/collector-performance")
+        ])
         if (Array.isArray(res)) allCollectors = res
+        const performanceMap = Array.isArray(perfRes)
+            ? perfRes.reduce((acc, item) => {
+                acc[item.collector_id] = item
+                return acc
+            }, {})
+            : {}
         
         // Count active vs suspended
         const active = allCollectors.filter(c => !c.is_suspended).length
@@ -645,6 +1069,12 @@ async function loadCollectorsTab() {
             const suspendedBadge = col.is_suspended 
                 ? `<span class="badge badge-priority high">Suspended</span>`
                 : `<span class="badge badge-status completed">Active</span>`
+
+            const perf = performanceMap[col.id] || {}
+            const totalAssigned = Number.isFinite(perf.total_assigned) ? perf.total_assigned : 0
+            const totalCompleted = Number.isFinite(perf.total_completed) ? perf.total_completed : 0
+            const rate = totalAssigned > 0 ? Math.round((totalCompleted / totalAssigned) * 100) : null
+            const avgHours = perf.avg_completion_hours != null ? perf.avg_completion_hours : null
                 
             const actionBtn = col.is_suspended
                 ? `<button class="btn btn-secondary" style="padding:0.3rem 0.6rem; font-size:0.8rem;" onclick="toggleCollectorStatus('${col.id}', false)">Reactivate</button>`
@@ -665,6 +1095,28 @@ async function loadCollectorsTab() {
                 <td style="padding: 1rem; text-align:center;">${actionBtn} ${verifyBtn}</td>
             `
             tbody.appendChild(tr)
+        })
+
+        const rows = tbody.querySelectorAll("tr")
+        rows.forEach((row, index) => {
+            const col = allCollectors[index]
+            if (!col) return
+            const perf = performanceMap[col.id] || {}
+            const totalAssigned = Number.isFinite(perf.total_assigned) ? perf.total_assigned : 0
+            const totalCompleted = Number.isFinite(perf.total_completed) ? perf.total_completed : 0
+            const rate = totalAssigned > 0 ? Math.round((totalCompleted / totalAssigned) * 100) : null
+            const avgHours = perf.avg_completion_hours != null ? perf.avg_completion_hours : null
+            const cells = row.querySelectorAll("td")
+            if (cells.length >= 7) {
+                cells[3].textContent = totalCompleted
+                cells[4].textContent = totalAssigned
+                cells[5].innerHTML = `
+                    ${rate !== null ? `${rate}%` : "N/A"}
+                    <div style="font-size:0.75rem; color:var(--text-tertiary); margin-top:0.25rem;">
+                        ${avgHours !== null ? `${avgHours}h avg` : "N/A"}
+                    </div>
+                `
+            }
         })
         
     } catch (err) {

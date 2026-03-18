@@ -47,6 +47,14 @@ function logout() {
 
 // Submit new report
 async function submitReport() {
+    if (window.isSubmittingReport) return
+
+    window.isSubmittingReport = true
+    const submitBtn = document.getElementById("submitReportBtn")
+    if (submitBtn) {
+        submitBtn.disabled = true
+        submitBtn.textContent = "Submitting..."
+    }
     showLoading()
     const title = document.getElementById("title").value
     const description = document.getElementById("description").value
@@ -57,6 +65,11 @@ async function submitReport() {
     if (!title || !description || !location || !priority) {
         showToast("Please fill in all required fields", "warning")
         hideLoading()
+        window.isSubmittingReport = false
+        if (submitBtn) {
+            submitBtn.disabled = false
+            submitBtn.textContent = "Submit Report"
+        }
         return
     }
 
@@ -80,10 +93,18 @@ async function submitReport() {
         await loadMyReports()
     } catch (err) {
         console.error(err)
-        showToast(err.message || "Error submitting report. Please try again.", "error")
+        const message = err.message && err.message.toLowerCase().includes("fetch failed")
+            ? "Network issue while submitting. Please try again."
+            : (err.message || "Error submitting report. Please try again.")
+        showToast(message, "error")
     }
 
     hideLoading()
+    window.isSubmittingReport = false
+    if (submitBtn) {
+        submitBtn.disabled = false
+        submitBtn.textContent = "Submit Report"
+    }
 }
 
 // Load notifications

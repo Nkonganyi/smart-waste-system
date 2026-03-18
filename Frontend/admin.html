@@ -22,6 +22,7 @@
                 <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode">
                     <span id="theme-icon">🌙</span>
                 </button>
+                <a class="navbar-logout" href="Home.html" style="text-decoration:none;">Home</a>
                 <button class="navbar-logout" onclick="logout()">Logout</button>
             </div>
         </nav>
@@ -39,6 +40,8 @@
                     <li><a href="#reports" class="sidebar-link" onclick="selectTab('reports')">📋 Reports</a></li>
                     <li><a href="#collectors" class="sidebar-link" onclick="selectTab('collectors')">👷 Collectors</a></li>
                     <li><a href="profile.html" class="sidebar-link">👤 My Profile</a></li>
+                    <li><a href="#citizens" class="sidebar-link" onclick="selectTab('citizens')">Citizens</a></li>
+                    <li><a href="#schedule" class="sidebar-link" onclick="selectTab('schedule')">Priority Queue</a></li>
                 </ul>
             </nav>
         </aside>
@@ -60,6 +63,27 @@
                 <section class="dashboard-section" id="analytics">
                     <div class="section-header">
                         <h2 class="section-title">📉 Analytics & Insights</h2>
+                    </div>
+                    <div class="card" style="margin-bottom: 1.5rem;">
+                        <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+                            <h3 class="card-header-title">Report Trends</h3>
+                            <div style="display:flex; align-items:center; gap:0.5rem;">
+                                <label class="form-label" style="margin:0; font-size:0.85rem;">Days</label>
+                                <input type="number" id="trendDays" min="1" max="365" value="30" style="width:90px;">
+                                <button class="btn btn-secondary" onclick="loadReportTrends()">Refresh</button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:1rem;">
+                                <div>
+                                    <canvas id="trendChart" height="140"></canvas>
+                                </div>
+                                <div>
+                                    <div id="trendStatusBreakdown" style="font-size:0.9rem; color:var(--text-secondary);"></div>
+                                    <div id="trendHint" style="font-size:0.85rem; color:var(--text-tertiary); margin-top:0.5rem;"></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="card-grid" style="grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));">
                         <div class="card">
@@ -177,6 +201,63 @@
                     <div id="reportsList" class="card-grid"></div>
                 </section>
 
+                <!-- Priority Queue Section -->
+                <section class="dashboard-section" id="schedule" style="display: none;">
+                    <div class="section-header">
+                        <h2 class="section-title">Priority Queue</h2>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-header-title">Prioritized Reports</h3>
+                        </div>
+                        <div class="card-body" style="overflow-x: auto;">
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <thead style="border-bottom: 2px solid var(--light-bg);">
+                                    <tr>
+                                        <th style="padding: 1rem; text-align: left; font-weight: 600;">Title</th>
+                                        <th style="padding: 1rem; text-align: left; font-weight: 600;">Location</th>
+                                        <th style="padding: 1rem; text-align: left; font-weight: 600;">Priority</th>
+                                        <th style="padding: 1rem; text-align: left; font-weight: 600;">Status</th>
+                                        <th style="padding: 1rem; text-align: center; font-weight: 600;">Duplicates</th>
+                                        <th style="padding: 1rem; text-align: center; font-weight: 600;">Score</th>
+                                        <th style="padding: 1rem; text-align: left; font-weight: 600;">Created</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="priorityTable"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Users Section -->
+                <section class="dashboard-section" id="citizens" style="display: none;">
+                    <div class="section-header">
+                        <h2 class="section-title">All Citizens</h2>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-header-title">Citizens</h3>
+                        </div>
+                        <div class="card-body" style="overflow-x: auto;">
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <thead style="border-bottom: 2px solid var(--light-bg);">
+                                    <tr>
+                                        <th style="padding: 1rem; text-align: left; font-weight: 600;">Name</th>
+                                        <th style="padding: 1rem; text-align: left; font-weight: 600;">Email</th>
+                                        <th style="padding: 1rem; text-align: left; font-weight: 600;">Role</th>
+                                        <th style="padding: 1rem; text-align: center; font-weight: 600;">Verified</th>
+                                        <th style="padding: 1rem; text-align: center; font-weight: 600;">Suspended</th>
+                                        <th style="padding: 1rem; text-align: left; font-weight: 600;">Phone</th>
+                                        <th style="padding: 1rem; text-align: left; font-weight: 600;">Created</th>
+                                        <th style="padding: 1rem; text-align: center; font-weight: 600;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="citizensTable"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
                 <!-- Collector Management Section -->
                 <section class="dashboard-section" id="collectors" style="display: none;">
                     <div class="section-header">
@@ -260,7 +341,24 @@
                 </div>
                 <div class="card-footer">
                     <button class="btn btn-secondary" onclick="closeReportModal()">Close</button>
+                    <button class="btn btn-secondary" id="modalRejectBtn" style="margin-left: 0.5rem; background: var(--danger-color); border-color: var(--danger-color); color: white;"></button>
                     <button class="btn btn-primary" id="modalActionBtn" style="margin-left: 0.5rem;"></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Detail Modal -->
+        <div id="userModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; overflow-y: auto;" onclick="closeUserModal(event)">
+            <div class="card" style="max-width: 520px; margin: 2rem auto; max-height: 90vh; overflow-y: auto;" onclick="event.stopPropagation()">
+                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: none;">
+                    <h2 class="card-header-title" id="userModalTitle">User Details</h2>
+                    <button onclick="closeUserModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-primary);">âœ•</button>
+                </div>
+                <div class="card-body">
+                    <div id="userModalBody"></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn btn-secondary" onclick="closeUserModal()">Close</button>
                 </div>
             </div>
         </div>
