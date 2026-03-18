@@ -3,11 +3,49 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard - GroundClean</title>
+    <title>Admin Dashboard — GroundClean</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+    <style>
+        /* Modal tab styles (referenced by admin.js) */
+        .modal-tabs {
+            display: flex;
+            border-bottom: 2px solid var(--border);
+            padding: 0 1.5rem;
+            gap: .25rem;
+        }
+        .modal-tab {
+            flex: 1;
+            padding: .75rem 1rem;
+            border: none;
+            background: none;
+            color: var(--text-muted);
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            font-size: .875rem;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            transition: all var(--t);
+        }
+        .modal-tab:hover { color: var(--primary); background: var(--primary-bg); }
+        .modal-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+        /* Trend filter chip */
+        .trend-filter {
+            display: flex;
+            align-items: center;
+            gap: .625rem;
+            background: var(--bg-alt);
+            padding: .5rem .875rem;
+            border-radius: var(--radius-full);
+            border: 1px solid var(--border);
+        }
+        .trend-filter label { font-size: .8rem; font-weight: 600; color: var(--text-muted); margin: 0; }
+        .trend-filter input { width: 70px; padding: .25rem .5rem; font-size: .8rem; border-radius: var(--radius-sm); margin: 0; }
+    </style>
 </head>
 <body>
     <div class="dashboard">
@@ -30,18 +68,18 @@
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
-                <h3 style="margin: 0; color: white; font-size: 1.1rem;">GroundClean</h3>
+                <h3>🌿 GroundClean</h3>
             </div>
             <nav class="sidebar-menu">
                 <ul class="sidebar-list">
-                    <li><a href="#stats" class="sidebar-link active" onclick="selectTab('stats')">📈 Dashboard</a></li>
-                    <li><a href="#analytics" class="sidebar-link" onclick="selectTab('analytics')">📊 Analytics</a></li>
-                    <li><a href="#map" class="sidebar-link" onclick="selectTab('map')">🗺️ Map View</a></li>
-                    <li><a href="#reports" class="sidebar-link" onclick="selectTab('reports')">📋 Reports</a></li>
-                    <li><a href="#collectors" class="sidebar-link" onclick="selectTab('collectors')">👷 Collectors</a></li>
+                    <li><a href="#stats"      class="sidebar-link active"  onclick="selectTab('stats')">📈 Dashboard</a></li>
+                    <li><a href="#analytics"  class="sidebar-link"         onclick="selectTab('analytics')">📊 Analytics</a></li>
+                    <li><a href="#map"        class="sidebar-link"         onclick="selectTab('map')">🗺️ Map View</a></li>
+                    <li><a href="#reports"    class="sidebar-link"         onclick="selectTab('reports')">📋 Reports</a></li>
+                    <li><a href="#collectors" class="sidebar-link"         onclick="selectTab('collectors')">👷 Collectors</a></li>
+                    <li><a href="#citizens"   class="sidebar-link"         onclick="selectTab('citizens')">👥 Citizens</a></li>
+                    <li><a href="#schedule"   class="sidebar-link"         onclick="selectTab('schedule')">🏅 Priority Queue</a></li>
                     <li><a href="profile.html" class="sidebar-link">👤 My Profile</a></li>
-                    <li><a href="#citizens" class="sidebar-link" onclick="selectTab('citizens')">Citizens</a></li>
-                    <li><a href="#schedule" class="sidebar-link" onclick="selectTab('schedule')">Priority Queue</a></li>
                 </ul>
             </nav>
         </aside>
@@ -62,79 +100,61 @@
                 <!-- Analytics Section -->
                 <section class="dashboard-section" id="analytics">
                     <div class="section-header">
-                        <h2 class="section-title">📉 Analytics & Insights</h2>
+                        <h2 class="section-title">📉 Analytics &amp; Insights</h2>
                     </div>
                     <div class="card" style="margin-bottom: 1.5rem;">
-                        <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+                        <div class="card-header">
                             <h3 class="card-header-title">Report Trends</h3>
-                            <div style="display:flex; align-items:center; gap:0.5rem;">
-                                <label class="form-label" style="margin:0; font-size:0.85rem;">Days</label>
-                                <input type="number" id="trendDays" min="1" max="365" value="30" style="width:90px;">
-                                <button class="btn btn-secondary" onclick="loadReportTrends()">Refresh</button>
+                            <div class="trend-filter">
+                                <label class="form-label" for="trendDays">Days</label>
+                                <input type="number" id="trendDays" min="1" max="365" value="30">
+                                <button class="btn btn-secondary btn-sm" onclick="loadReportTrends()">Refresh</button>
                             </div>
                         </div>
                         <div class="card-body">
-                            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:1rem;">
+                            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:1.5rem;">
+                                <div><canvas id="trendChart" height="140"></canvas></div>
                                 <div>
-                                    <canvas id="trendChart" height="140"></canvas>
-                                </div>
-                                <div>
-                                    <div id="trendStatusBreakdown" style="font-size:0.9rem; color:var(--text-secondary);"></div>
-                                    <div id="trendHint" style="font-size:0.85rem; color:var(--text-tertiary); margin-top:0.5rem;"></div>
+                                    <div id="trendStatusBreakdown" style="font-size:.875rem; color:var(--text-body);"></div>
+                                    <div id="trendHint" style="font-size:.8rem; color:var(--text-muted); margin-top:.5rem;"></div>
                                 </div>
                             </div>
                         </div>
                     </div>
                     <div class="card-grid" style="grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));">
                         <div class="card">
-                            <div class="card-header">
-                                <h3 class="card-header-title">Reports Per Location</h3>
-                            </div>
-                            <div class="card-body">
-                                <canvas id="locationChart"></canvas>
-                            </div>
+                            <div class="card-header"><h3 class="card-header-title">Reports Per Location</h3></div>
+                            <div class="card-body"><canvas id="locationChart"></canvas></div>
                         </div>
                         <div class="card">
-                            <div class="card-header">
-                                <h3 class="card-header-title">Collector Workload</h3>
-                            </div>
-                            <div class="card-body">
-                                <canvas id="collectorChart"></canvas>
-                            </div>
+                            <div class="card-header"><h3 class="card-header-title">Collector Workload</h3></div>
+                            <div class="card-body"><canvas id="collectorChart"></canvas></div>
                         </div>
                     </div>
                     <div class="card-grid" style="grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); margin-top: 1.5rem;">
                         <div class="card">
-                            <div class="card-header">
-                                <h3 class="card-header-title">Report Status Distribution</h3>
-                            </div>
-                            <div class="card-body">
-                                <canvas id="statusChart"></canvas>
-                            </div>
+                            <div class="card-header"><h3 class="card-header-title">Report Status Distribution</h3></div>
+                            <div class="card-body"><canvas id="statusChart"></canvas></div>
                         </div>
                         <div class="card">
-                            <div class="card-header">
-                                <h3 class="card-header-title">Priority Breakdown</h3>
-                            </div>
-                            <div class="card-body">
-                                <canvas id="priorityChart"></canvas>
-                            </div>
+                            <div class="card-header"><h3 class="card-header-title">Priority Breakdown</h3></div>
+                            <div class="card-body"><canvas id="priorityChart"></canvas></div>
                         </div>
                     </div>
                 </section>
 
                 <!-- Map Section -->
                 <section class="dashboard-section" id="map" style="display: none;">
-                    <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <div class="section-header">
                         <h2 class="section-title">🗺️ Geographic Visualization</h2>
-                        <div class="form-group" style="margin: 0; display: flex; align-items: center; gap: 0.5rem; background: var(--card-bg); padding: 0.5rem 1rem; border-radius: 20px; box-shadow: var(--shadow);">
-                            <label class="form-label" style="margin: 0; font-size: 0.9rem; cursor: pointer;">🔥 Show Heatmap</label>
-                            <input type="checkbox" id="heatmapToggle" onchange="toggleHeatmap()" style="width: auto; cursor: pointer;">
+                        <div class="form-group" style="margin:0; display:flex; align-items:center; gap:.625rem; background:var(--bg-card); padding:.5rem 1rem; border-radius:var(--radius-full); box-shadow:var(--shadow-sm); border:1px solid var(--border);">
+                            <label class="form-label" style="margin:0; font-size:.875rem; cursor:pointer; white-space:nowrap;">🔥 Show Heatmap</label>
+                            <input type="checkbox" id="heatmapToggle" onchange="toggleHeatmap()" style="width:auto; cursor:pointer;">
                         </div>
                     </div>
                     <div class="card">
                         <div class="card-body" style="padding: 0;">
-                            <div id="adminMap" style="height: 600px; width: 100%; border-radius: 8px;"></div>
+                            <div id="adminMap" style="height: 600px; width: 100%; border-radius: 0 0 var(--radius-lg) var(--radius-lg);"></div>
                         </div>
                     </div>
                 </section>
@@ -144,20 +164,17 @@
                     <div class="section-header">
                         <h2 class="section-title">📋 All Reports</h2>
                     </div>
-                    
                     <!-- Filter Controls -->
                     <div class="card" style="margin-bottom: 1.5rem;">
                         <div class="card-header">
-                            <h3 class="card-header-title">🔍 Search & Filter Reports</h3>
+                            <h3 class="card-header-title">🔍 Search &amp; Filter Reports</h3>
                         </div>
                         <div class="card-body">
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
-                                <div class="form-group" style="grid-column: 1 / -1;">
-                                    <label class="form-label">Search by Title or Description</label>
-                                    <input type="text" id="filterSearch" placeholder="Type to search..." onkeyup="applyFilters()" style="width: 100%;">
-                                </div>
+                            <div class="form-group">
+                                <label class="form-label">Search by Title or Description</label>
+                                <input type="text" id="filterSearch" placeholder="Type to search..." onkeyup="applyFilters()">
                             </div>
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;">
+                            <div class="form-row">
                                 <div class="form-group">
                                     <label class="form-label">Status</label>
                                     <select id="filterStatus" onchange="applyFilters()">
@@ -190,37 +207,34 @@
                                     <label class="form-label">To Date</label>
                                     <input type="date" id="filterDateTo" onchange="applyFilters()">
                                 </div>
-                                <div class="form-group" style="display: flex; align-items: flex-end;">
-                                    <button class="btn btn-secondary" onclick="clearFilters()" style="width: 100%;">Clear All</button>
+                                <div class="form-group" style="display:flex; align-items:flex-end;">
+                                    <button class="btn btn-secondary" onclick="clearFilters()" style="width:100%;">Clear All</button>
                                 </div>
                             </div>
-                            <div id="filterStats" style="margin-top: 1rem; padding: 0.75rem; background: rgba(27, 94, 32, 0.1); border-radius: 6px; color: var(--text-secondary); font-size: 0.85rem;"></div>
+                            <div id="filterStats" style="margin-top:.75rem; padding:.75rem 1rem; background:var(--primary-bg); border-radius:var(--radius-md); color:var(--text-muted); font-size:.8rem;"></div>
                         </div>
                     </div>
-                    
                     <div id="reportsList" class="card-grid"></div>
                 </section>
 
                 <!-- Priority Queue Section -->
                 <section class="dashboard-section" id="schedule" style="display: none;">
                     <div class="section-header">
-                        <h2 class="section-title">Priority Queue</h2>
+                        <h2 class="section-title">🏅 Priority Queue</h2>
                     </div>
                     <div class="card">
-                        <div class="card-header">
-                            <h3 class="card-header-title">Prioritized Reports</h3>
-                        </div>
+                        <div class="card-header"><h3 class="card-header-title">Prioritized Reports</h3></div>
                         <div class="card-body" style="overflow-x: auto;">
-                            <table style="width: 100%; border-collapse: collapse;">
-                                <thead style="border-bottom: 2px solid var(--light-bg);">
+                            <table style="width:100%;">
+                                <thead>
                                     <tr>
-                                        <th style="padding: 1rem; text-align: left; font-weight: 600;">Title</th>
-                                        <th style="padding: 1rem; text-align: left; font-weight: 600;">Location</th>
-                                        <th style="padding: 1rem; text-align: left; font-weight: 600;">Priority</th>
-                                        <th style="padding: 1rem; text-align: left; font-weight: 600;">Status</th>
-                                        <th style="padding: 1rem; text-align: center; font-weight: 600;">Duplicates</th>
-                                        <th style="padding: 1rem; text-align: center; font-weight: 600;">Score</th>
-                                        <th style="padding: 1rem; text-align: left; font-weight: 600;">Created</th>
+                                        <th>Title</th>
+                                        <th>Location</th>
+                                        <th>Priority</th>
+                                        <th>Status</th>
+                                        <th style="text-align:center;">Duplicates</th>
+                                        <th style="text-align:center;">Score</th>
+                                        <th>Created</th>
                                     </tr>
                                 </thead>
                                 <tbody id="priorityTable"></tbody>
@@ -229,27 +243,25 @@
                     </div>
                 </section>
 
-                <!-- Users Section -->
+                <!-- Citizens Section -->
                 <section class="dashboard-section" id="citizens" style="display: none;">
                     <div class="section-header">
-                        <h2 class="section-title">All Citizens</h2>
+                        <h2 class="section-title">👥 All Citizens</h2>
                     </div>
                     <div class="card">
-                        <div class="card-header">
-                            <h3 class="card-header-title">Citizens</h3>
-                        </div>
+                        <div class="card-header"><h3 class="card-header-title">Citizens</h3></div>
                         <div class="card-body" style="overflow-x: auto;">
-                            <table style="width: 100%; border-collapse: collapse;">
-                                <thead style="border-bottom: 2px solid var(--light-bg);">
+                            <table>
+                                <thead>
                                     <tr>
-                                        <th style="padding: 1rem; text-align: left; font-weight: 600;">Name</th>
-                                        <th style="padding: 1rem; text-align: left; font-weight: 600;">Email</th>
-                                        <th style="padding: 1rem; text-align: left; font-weight: 600;">Role</th>
-                                        <th style="padding: 1rem; text-align: center; font-weight: 600;">Verified</th>
-                                        <th style="padding: 1rem; text-align: center; font-weight: 600;">Suspended</th>
-                                        <th style="padding: 1rem; text-align: left; font-weight: 600;">Phone</th>
-                                        <th style="padding: 1rem; text-align: left; font-weight: 600;">Created</th>
-                                        <th style="padding: 1rem; text-align: center; font-weight: 600;">Actions</th>
+                                        <th>Name</th>
+                                        <th>Email</th>
+                                        <th>Role</th>
+                                        <th style="text-align:center;">Verified</th>
+                                        <th style="text-align:center;">Suspended</th>
+                                        <th>Phone</th>
+                                        <th>Created</th>
+                                        <th style="text-align:center;">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="citizensTable"></tbody>
@@ -265,20 +277,18 @@
                     </div>
                     <div id="collectorStats" class="card-grid" style="margin-bottom: 2rem;"></div>
                     <div class="card">
-                        <div class="card-header">
-                            <h3 class="card-header-title">Collectors Performance</h3>
-                        </div>
+                        <div class="card-header"><h3 class="card-header-title">Collectors Performance</h3></div>
                         <div class="card-body" style="overflow-x: auto;">
-                            <table style="width: 100%; border-collapse: collapse;">
-                                <thead style="border-bottom: 2px solid var(--light-bg);">
+                            <table>
+                                <thead>
                                     <tr>
-                                        <th style="padding: 1rem; text-align: left; font-weight: 600;">Name</th>
-                                        <th style="padding: 1rem; text-align: left; font-weight: 600;">Email</th>
-                                        <th style="padding: 1rem; text-align: center; font-weight: 600;">Active</th>
-                                        <th style="padding: 1rem; text-align: center; font-weight: 600;">Completed</th>
-                                        <th style="padding: 1rem; text-align: center; font-weight: 600;">Total</th>
-                                        <th style="padding: 1rem; text-align: center; font-weight: 600;">Rate</th>
-                                        <th style="padding: 1rem; text-align: center; font-weight: 600;">Action</th>
+                                        <th>Name</th>
+                                        <th>Email</th>
+                                        <th style="text-align:center;">Active</th>
+                                        <th style="text-align:center;">Completed</th>
+                                        <th style="text-align:center;">Total</th>
+                                        <th style="text-align:center;">Rate</th>
+                                        <th style="text-align:center;">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody id="collectorTable"></tbody>
@@ -290,73 +300,43 @@
         </main>
 
         <!-- Report Detail Modal -->
-        <div id="reportModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; overflow-y: auto;" onclick="closeReportModal(event)">
-            <div class="card" style="max-width: 600px; margin: 2rem auto; max-height: 90vh; overflow-y: auto;" onclick="event.stopPropagation()">
-                <style>
-                    .modal-tabs {
-                        display: flex;
-                        border-bottom: 2px solid var(--light-bg);
-                        margin: 0 1.5rem 1.5rem;
-                    }
-                    .modal-tab {
-                        flex: 1;
-                        padding: 0.75rem;
-                        border: none;
-                        background: none;
-                        color: var(--text-secondary);
-                        font-weight: 600;
-                        cursor: pointer;
-                        border-bottom: 3px solid transparent;
-                        transition: all 0.3s;
-                    }
-                    .modal-tab:hover {
-                        color: var(--primary-color);
-                        background: rgba(76, 175, 80, 0.05);
-                    }
-                    .modal-tab.active {
-                        color: var(--primary-color);
-                        border-bottom-color: var(--primary-color);
-                    }
-                </style>
-                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: none;">
+        <div id="reportModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 1000; overflow-y: auto;" onclick="closeReportModal(event)">
+            <div class="card" style="max-width: 620px; margin: 2rem auto; max-height: 90vh; overflow-y: auto;" onclick="event.stopPropagation()">
+                <div class="card-header" style="border-bottom: none;">
                     <h2 class="card-header-title" id="modalTitle">Report Details</h2>
-                    <button onclick="closeReportModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-primary);">✕</button>
+                    <button onclick="closeReportModal()" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--text-muted); padding:0; line-height:1;">✕</button>
                 </div>
-                <!-- Modal Tabs -->
                 <div class="modal-tabs">
-                    <button class="modal-tab active" id="tab-details" onclick="switchModalTab('details')">📋 Details</button>
-                    <button class="modal-tab" id="tab-duplicates" onclick="switchModalTab('duplicates')">👥 Linked Reports (<span id="duplicateCountLabel">0</span>)</button>
+                    <button class="modal-tab active" id="tab-details"    onclick="switchModalTab('details')">📋 Details</button>
+                    <button class="modal-tab"         id="tab-duplicates" onclick="switchModalTab('duplicates')">👥 Linked Reports (<span id="duplicateCountLabel">0</span>)</button>
                 </div>
                 <div class="card-body">
                     <div id="detailsSection">
                         <div id="modalDescription"></div>
                         <div id="modalImage" style="margin: 1.5rem 0;"></div>
                         <div id="modalDetails"></div>
-                        <div id="modalHistory" style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--light-bg);"></div>
+                        <div id="modalHistory" style="margin-top:1.5rem; padding-top:1.5rem; border-top:1px solid var(--border);"></div>
                     </div>
-                    
                     <div id="duplicatesSection" style="display: none;">
-                        <div id="duplicatesList" style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1rem;"></div>
+                        <div id="duplicatesList" style="display:flex; flex-direction:column; gap:.75rem; margin-top:1rem;"></div>
                     </div>
                 </div>
                 <div class="card-footer">
                     <button class="btn btn-secondary" onclick="closeReportModal()">Close</button>
-                    <button class="btn btn-secondary" id="modalRejectBtn" style="margin-left: 0.5rem; background: var(--danger-color); border-color: var(--danger-color); color: white;"></button>
-                    <button class="btn btn-primary" id="modalActionBtn" style="margin-left: 0.5rem;"></button>
+                    <button class="btn btn-danger" id="modalRejectBtn" style="margin-left:.5rem;"></button>
+                    <button class="btn btn-primary" id="modalActionBtn" style="margin-left:.5rem;"></button>
                 </div>
             </div>
         </div>
 
         <!-- User Detail Modal -->
-        <div id="userModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; overflow-y: auto;" onclick="closeUserModal(event)">
-            <div class="card" style="max-width: 520px; margin: 2rem auto; max-height: 90vh; overflow-y: auto;" onclick="event.stopPropagation()">
-                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: none;">
+        <div id="userModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 1000; overflow-y: auto;" onclick="closeUserModal(event)">
+            <div class="card" style="max-width: 540px; margin: 2rem auto; max-height: 90vh; overflow-y: auto;" onclick="event.stopPropagation()">
+                <div class="card-header" style="border-bottom: none;">
                     <h2 class="card-header-title" id="userModalTitle">User Details</h2>
-                    <button onclick="closeUserModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-primary);">âœ•</button>
+                    <button onclick="closeUserModal()" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--text-muted); padding:0; line-height:1;">✕</button>
                 </div>
-                <div class="card-body">
-                    <div id="userModalBody"></div>
-                </div>
+                <div class="card-body"><div id="userModalBody"></div></div>
                 <div class="card-footer">
                     <button class="btn btn-secondary" onclick="closeUserModal()">Close</button>
                 </div>
@@ -368,28 +348,21 @@
     <script src="js/admin.js?v=2.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        // Dark mode toggle
         function toggleTheme() {
             const html = document.documentElement;
             const currentTheme = html.getAttribute('data-theme');
             const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            
             html.setAttribute('data-theme', newTheme);
             localStorage.setItem('theme', newTheme);
-            
             const icon = document.getElementById('theme-icon');
             icon.textContent = newTheme === 'dark' ? '☀️' : '🌙';
         }
-
-        // Sidebar mobile toggle
         function toggleSidebar() {
             const sidebar = document.querySelector('.sidebar');
             const toggle = document.getElementById('sidebarToggle');
             sidebar.classList.toggle('active');
             toggle.classList.toggle('active');
         }
-
-        // Close sidebar when clicking on a link
         document.querySelectorAll('.sidebar-link').forEach(link => {
             link.addEventListener('click', function() {
                 if (window.innerWidth <= 768) {
@@ -398,8 +371,6 @@
                 }
             });
         });
-
-        // Load saved theme on page load
         window.addEventListener('DOMContentLoaded', () => {
             const savedTheme = localStorage.getItem('theme') || 'light';
             document.documentElement.setAttribute('data-theme', savedTheme);

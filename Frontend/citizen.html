@@ -3,8 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Citizen Dashboard - GroundClean</title>
+    <title>Citizen Dashboard — GroundClean</title>
     <link rel="stylesheet" href="css/style.css">
+    <style>
+        .welcome-banner {
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            border-radius: var(--radius-lg);
+            padding: 1.5rem 2rem;
+            color: #fff;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        .welcome-banner h2 { color: #fff; font-size: 1.5rem; margin: 0 0 .25rem; }
+        .welcome-banner p  { color: rgba(255,255,255,.85); margin: 0; font-size: .9rem; }
+        .report-form-card .card-body { background: var(--bg-card); }
+        #imagePreview {
+            display: none; max-width: 100%; height: auto;
+            margin-top: 1rem; border-radius: var(--radius-md);
+            border: 1px solid var(--border); object-fit: cover;
+        }
+    </style>
 </head>
 <body>
     <div class="dashboard">
@@ -26,6 +48,9 @@
 
         <!-- Sidebar -->
         <aside class="sidebar">
+            <div class="sidebar-header">
+                <h3>🌿 GroundClean</h3>
+            </div>
             <ul class="sidebar-menu">
                 <li class="sidebar-menu-item"><a href="#" class="sidebar-link active">📈 Dashboard</a></li>
                 <li class="sidebar-menu-item"><a href="#reports" class="sidebar-link">📋 My Reports</a></li>
@@ -39,43 +64,60 @@
             <div class="container">
                 <div id="loading" class="spinner"></div>
 
+                <!-- Welcome Banner -->
+                <div class="welcome-banner">
+                    <div>
+                        <h2>👋 Welcome back!</h2>
+                        <p>Report a waste issue or check the status of your existing reports below.</p>
+                    </div>
+                    <div>🌿</div>
+                </div>
+
                 <!-- Submit Report Section -->
                 <section class="dashboard-section">
                     <div class="section-header">
                         <h2 class="section-title">🆕 Report Waste Issue</h2>
                     </div>
-                    <div class="card">
+                    <div class="card report-form-card">
+                        <div class="card-header">
+                            <span class="card-header-title">New Report</span>
+                            <span class="badge badge-priority normal">Helping your community</span>
+                        </div>
                         <div class="card-body">
-                            <div class="form-group">
-                                <label class="form-label">Title *</label>
-                                <input type="text" id="title" placeholder="Brief title of the issue" required>
+                            <div class="form-row">
+                                <div class="form-group" style="grid-column: 1 / -1;">
+                                    <label class="form-label">Title *</label>
+                                    <input type="text" id="title" placeholder="Brief title of the issue" required>
+                                </div>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Description *</label>
-                                <textarea id="description" placeholder="Detailed description of the waste issue" required></textarea>
+                                <textarea id="description" placeholder="Describe the waste issue in detail — what, where, and how severe it is" required></textarea>
                             </div>
                             <div class="form-group suggestions-container">
                                 <label class="form-label">Location *</label>
-                                <input type="text" id="location" placeholder="Location or address of the waste" required autocomplete="off">
+                                <input type="text" id="location" placeholder="Street name, neighbourhood, or address" required autocomplete="off">
                                 <ul id="suggestionsList" class="suggestions-list"></ul>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Photo Evidence</label>
-                                <input type="file" id="image" accept="image/*" onchange="previewImage(event)">
-                                <img id="imagePreview" style="display:none; max-width:100%; height:auto; margin-top:1rem; border-radius:8px; border:1px solid var(--border-color);">
-                                <small style="color: var(--text-tertiary); display: block; margin-top: 0.5rem;">Upload a photo for better documentation</small>
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
+                                    <label class="form-label">Photo Evidence</label>
+                                    <input type="file" id="image" accept="image/*" onchange="previewImage(event)">
+                                    <img id="imagePreview">
+                                    <small style="color:var(--text-subtle);display:block;margin-top:.375rem;">Upload a photo for better documentation</small>
+                                </div>
+                                <div class="form-group">
                                     <label class="form-label">Priority Level</label>
                                     <select id="priority">
-                                        <option value="low">Low - Can wait</option>
-                                        <option value="normal" selected>Normal - Routine</option>
-                                        <option value="high">High - Urgent</option>
+                                        <option value="low">🟢 Low — Can wait</option>
+                                        <option value="normal" selected>🟡 Normal — Routine</option>
+                                        <option value="high">🔴 High — Urgent</option>
                                     </select>
                                 </div>
                             </div>
-                            <button class="btn btn-primary btn-block" id="submitReportBtn" onclick="submitReport()">Submit Report</button>
+                            <button class="btn btn-primary btn-lg" id="submitReportBtn" onclick="submitReport()">
+                                📤 Submit Report
+                            </button>
                         </div>
                     </div>
                 </section>
@@ -102,28 +144,21 @@
     <script src="js/api.js"></script>
     <script src="js/citizen.js"></script>
     <script>
-        // Dark mode toggle
         function toggleTheme() {
             const html = document.documentElement;
             const currentTheme = html.getAttribute('data-theme');
             const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            
             html.setAttribute('data-theme', newTheme);
             localStorage.setItem('theme', newTheme);
-            
             const icon = document.getElementById('theme-icon');
             icon.textContent = newTheme === 'dark' ? '☀️' : '🌙';
         }
-
-        // Sidebar mobile toggle
         function toggleSidebar() {
             const sidebar = document.querySelector('.sidebar');
             const toggle = document.getElementById('sidebarToggle');
             sidebar.classList.toggle('active');
             toggle.classList.toggle('active');
         }
-
-        // Close sidebar when clicking on a link
         document.querySelectorAll('.sidebar-link').forEach(link => {
             link.addEventListener('click', function() {
                 if (window.innerWidth <= 768) {
@@ -132,8 +167,6 @@
                 }
             });
         });
-
-        // Load saved theme on page load
         window.addEventListener('DOMContentLoaded', () => {
             const savedTheme = localStorage.getItem('theme') || 'light';
             document.documentElement.setAttribute('data-theme', savedTheme);

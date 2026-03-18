@@ -3,431 +3,97 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GroundClean - Smart Waste Management System</title>
+    <title>GroundClean — Smart Waste Management for Cleaner Communities</title>
+    <meta name="description" content="GroundClean connects citizens with waste collectors to create cleaner, healthier communities. Report waste, track progress, and make a difference.">
     <link rel="stylesheet" href="css/style.css">
     <style>
-        /* Landing Page Specific Styles */
-        .landing-navbar {
-            background: var(--navbar-bg);
-            color: white;
-            padding: 1rem 2rem;
+        /* Landing-page-only overrides */
+        body { margin: 0; overflow-x: hidden; }
+
+        /* Sticky nav scroll effect */
+        .landing-navbar.scrolled {
+            background: rgba(21,128,61,.97);
+            backdrop-filter: blur(12px);
+        }
+
+        /* Hero wave divider */
+        .hero-wave-wrap {
+            position: absolute;
+            bottom: -1px; left: 0; right: 0;
+            line-height: 0;
+        }
+        .hero-wave-wrap svg { display: block; width: 100%; }
+
+        /* Stats bar inside hero */
+        .hero-stats {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 100;
-            box-shadow: var(--shadow-md);
-            transition: all var(--transition-duration) ease;
-        }
-
-        .landing-navbar .navbar-brand {
-            font-size: 1.5rem;
-            font-weight: 800;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .landing-navbar .navbar-brand::before {
-            content: "🌱";
-            font-size: 1.75rem;
-        }
-
-        .nav-links {
-            display: flex;
-            gap: 2rem;
-            align-items: center;
-        }
-
-        .nav-link {
-            color: rgba(255, 255, 255, 0.8);
-            text-decoration: none;
-            font-weight: 500;
-            transition: color 0.3s ease;
-        }
-
-        .nav-link:hover {
-            color: var(--accent-color);
-        }
-
-        .nav-buttons {
-            display: flex;
-            gap: 1rem;
-        }
-
-        /* Hero Section */
-        .hero {
-            background: linear-gradient(135deg, var(--primary-color) 0%, #0d3d1e 100%);
-            color: white;
-            padding: 120px 2rem 80px;
-            text-align: center;
-            margin-top: 70px;
-        }
-
-        .hero h1 {
-            font-size: 3.5rem;
-            margin-bottom: 1rem;
-            color: white;
-        }
-
-        .hero p {
-            font-size: 1.25rem;
-            color: rgba(255, 255, 255, 0.9);
-            max-width: 600px;
-            margin: 0 auto 2rem;
-            line-height: 1.8;
-        }
-
-        .hero-buttons {
-            display: flex;
-            gap: 1.5rem;
             justify-content: center;
+            gap: 3rem;
+            margin-top: 3.5rem;
             flex-wrap: wrap;
         }
-
-        .hero-buttons .btn {
-            padding: 0.95rem 2rem;
-            font-size: 1rem;
-            font-weight: 700;
+        .hero-stat strong {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.875rem;
+            font-weight: 900;
+            color: #fff;
+            display: block;
         }
+        .hero-stat span { font-size: .85rem; color: rgba(255,255,255,.75); }
 
-        .btn-primary-hero {
-            background: var(--accent-color);
-            color: var(--primary-color);
-        }
-
-        .btn-primary-hero:hover {
-            background: var(--accent-dark);
-        }
-
-        .btn-secondary-hero {
-            background: transparent;
-            border: 2px solid white;
-            color: white;
-        }
-
-        .btn-secondary-hero:hover {
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        /* Features Section */
-        .features-section {
-            padding: 80px 2rem;
-            background: var(--bg-primary);
-        }
-
-        .section-container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .section-title {
-            text-align: center;
-            font-size: 2.5rem;
-            font-weight: 800;
-            margin-bottom: 3rem;
-            color: var(--text-primary);
-        }
-
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-            margin-bottom: 3rem;
-        }
-
-        .feature-card {
-            background: var(--card-bg);
-            padding: 2rem;
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
-            text-align: center;
-            transition: all 0.3s ease;
-        }
-
-        .feature-card:hover {
-            transform: translateY(-8px);
-            box-shadow: var(--shadow-lg);
-            border-color: var(--primary-color);
-        }
-
-        .feature-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-        }
-
-        .feature-card h3 {
-            font-size: 1.5rem;
-            margin-bottom: 0.75rem;
-            color: var(--text-primary);
-        }
-
-        .feature-card p {
-            color: var(--text-secondary);
-            font-size: 0.95rem;
-            line-height: 1.8;
-        }
-
-        /* Process Section */
-        .process-section {
-            padding: 80px 2rem;
-            background: var(--bg-secondary);
-        }
-
-        .process-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 2rem;
-            margin: 3rem auto;
-            max-width: 1000px;
-        }
-
-        .process-step {
-            background: var(--card-bg);
-            padding: 2.5rem;
-            border-radius: 12px;
-            border: 2px solid var(--border-color);
-            position: relative;
-            text-align: center;
-            transition: all 0.3s ease;
-        }
-
-        .process-step:hover {
-            border-color: var(--primary-color);
-            box-shadow: var(--shadow-lg);
-        }
-
-        .step-number {
+        /* Section label pill */
+        .section-label {
             display: inline-flex;
             align-items: center;
-            justify-content: center;
-            width: 60px;
-            height: 60px;
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-lighter) 100%);
-            color: white;
-            border-radius: 50%;
-            font-size: 1.75rem;
-            font-weight: 800;
-            margin-bottom: 1.5rem;
-        }
-
-        .process-step h3 {
-            font-size: 1.25rem;
-            margin-bottom: 0.75rem;
-            color: var(--text-primary);
-        }
-
-        .process-step p {
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-            line-height: 1.7;
-        }
-
-        /* Benefits Section */
-        .benefits-section {
-            padding: 80px 2rem;
-            background: var(--bg-primary);
-        }
-
-        .benefits-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 3rem;
-            align-items: center;
-        }
-
-        .benefit-list {
-            list-style: none;
-        }
-
-        .benefit-item {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 1.75rem;
-            align-items: flex-start;
-        }
-
-        .benefit-icon {
-            font-size: 1.75rem;
-            flex-shrink: 0;
-            margin-top: 0.25rem;
-        }
-
-        .benefit-item h4 {
-            font-size: 1.1rem;
-            margin-bottom: 0.5rem;
-            color: var(--text-primary);
-        }
-
-        .benefit-item p {
-            color: var(--text-secondary);
-            font-size: 0.95rem;
-        }
-
-        .benefits-image {
-            font-size: 6rem;
-            text-align: center;
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-lighter) 100%);
-            padding: 3rem;
-            border-radius: 12px;
-            color: white;
-        }
-
-        /* CTA Section */
-        .cta-section {
-            background: linear-gradient(135deg, var(--primary-color) 0%, #0d3d1e 100%);
-            color: white;
-            padding: 60px 2rem;
-            text-align: center;
-        }
-
-        .cta-section h2 {
-            font-size: 2.5rem;
+            gap: .375rem;
+            background: var(--primary-bg);
+            color: var(--primary);
+            padding: .3rem .9rem;
+            border-radius: var(--radius-full);
+            font-size: .78rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .6px;
             margin-bottom: 1rem;
-            color: white;
+            border: 1px solid var(--primary-border);
         }
+        /* Process connector line */
+        .process-grid { position: relative; }
 
-        .cta-section p {
-            font-size: 1.1rem;
-            color: rgba(255, 255, 255, 0.9);
-            margin-bottom: 2rem;
-            max-width: 600px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        /* Footer */
-        .footer {
-            background: var(--card-bg);
-            color: var(--text-secondary);
-            padding: 3rem 2rem;
-            text-align: center;
-            border-top: 1px solid var(--border-color);
-        }
-
-        .footer-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 2rem;
-            margin-bottom: 2rem;
-            text-align: left;
-        }
-
-        .footer-section h4 {
-            color: var(--text-primary);
-            margin-bottom: 1rem;
-        }
-
-        .footer-section ul {
-            list-style: none;
-        }
-
-        .footer-section li {
-            margin-bottom: 0.5rem;
-        }
-
-        .footer-section a {
-            color: var(--text-secondary);
+        /* CTA section buttons */
+        .cta-buttons { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 2.5rem; }
+        .btn-cta-white {
+            background: #fff;
+            color: var(--primary);
+            padding: .875rem 2rem;
+            font-size: 1rem;
+            font-weight: 700;
+            border-radius: var(--radius-lg);
             text-decoration: none;
+            display: inline-flex; align-items: center; gap: .5rem;
+            transition: all var(--t);
+            box-shadow: 0 4px 16px rgba(0,0,0,.12);
         }
-
-        .footer-section a:hover {
-            color: var(--primary-color);
+        .btn-cta-white:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.16); color: var(--primary); text-decoration: none; }
+        .btn-cta-outline {
+            background: transparent;
+            border: 2px solid rgba(255,255,255,.6);
+            color: #fff;
+            padding: .875rem 2rem;
+            font-size: 1rem;
+            font-weight: 700;
+            border-radius: var(--radius-lg);
+            text-decoration: none;
+            display: inline-flex; align-items: center; gap: .5rem;
+            transition: all var(--t);
         }
-
-        .footer-bottom {
-            text-align: center;
-            padding-top: 2rem;
-            border-top: 1px solid var(--border-color);
-            font-size: 0.9rem;
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .nav-links {
-                gap: 1rem;
-                font-size: 0.9rem;
-            }
-
-            .hero {
-                padding: 100px 1.5rem 60px;
-            }
-
-            .hero h1 {
-                font-size: 2.25rem;
-            }
-
-            .hero p {
-                font-size: 1rem;
-            }
-
-            .hero-buttons {
-                gap: 1rem;
-            }
-
-            .section-title {
-                font-size: 2rem;
-                margin-bottom: 2rem;
-            }
-
-            .features-grid,
-            .process-grid {
-                gap: 1.5rem;
-            }
-
-            .benefits-content {
-                grid-template-columns: 1fr;
-                gap: 2rem;
-            }
-
-            .cta-section h2 {
-                font-size: 1.75rem;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .landing-navbar {
-                padding: 0.75rem 1rem;
-            }
-
-            .nav-links {
-                display: none;
-            }
-
-            .hero h1 {
-                font-size: 1.75rem;
-            }
-
-            .hero p {
-                font-size: 0.95rem;
-            }
-
-            .hero-buttons {
-                flex-direction: column;
-                gap: 0.75rem;
-            }
-
-            .hero-buttons .btn {
-                width: 100%;
-            }
-
-            .footer-content {
-                grid-template-columns: 1fr;
-            }
-        }
+        .btn-cta-outline:hover { background: rgba(255,255,255,.12); color: #fff; text-decoration: none; }
     </style>
 </head>
 <body>
     <!-- Navigation -->
-    <nav class="landing-navbar">
-        <div class="navbar-brand">GroundClean</div>
+    <nav class="landing-navbar" id="mainNav">
+        <a href="Home.html" class="navbar-brand">GroundClean</a>
         <div class="nav-links">
             <a href="#features" class="nav-link">Features</a>
             <a href="#process" class="nav-link">How It Works</a>
@@ -437,83 +103,103 @@
             <button class="theme-toggle" onclick="toggleTheme()">
                 <span id="theme-icon">🌙</span>
             </button>
-            <a href="index.html" class="btn btn-primary" style="padding: 0.6rem 1.2rem; font-size: 0.9rem;">Login</a>
+            <a href="index.html" class="btn-nav-login">Login</a>
+            <a href="register.html" class="btn-nav-cta">Get Started</a>
         </div>
     </nav>
 
     <!-- Hero Section -->
     <section class="hero">
-        <h1>Smart Waste Management for Cameroon</h1>
-        <p>GroundClean is a modern platform connecting citizens with waste collectors to create cleaner, healthier communities. Report waste issues, track collection progress, and contribute to environmental sustainability.</p>
+        <div class="hero-badge">🌿 Smart Waste Management Platform</div>
+        <h1>Clean Cities Start With<br><em>People Like You</em></h1>
+        <p>GroundClean connects citizens with waste collectors to tackle waste issues fast. Report a problem, watch it get solved — together we build cleaner communities.</p>
         <div class="hero-buttons">
-            <a href="register.html" class="btn btn-primary-hero">Get Started</a>
-            <a href="#features" class="btn btn-secondary-hero">Learn More</a>
+            <a href="register.html" class="btn-hero-primary">🚀 Get Started Free</a>
+            <a href="#features" class="btn-hero-secondary">Learn More ↓</a>
+        </div>
+        <div class="hero-stats">
+            <div class="hero-stat"><strong>500+</strong><span>Reports Resolved</span></div>
+            <div class="hero-stat"><strong>50+</strong><span>Active Collectors</span></div>
+            <div class="hero-stat"><strong>10+</strong><span>Cities Covered</span></div>
+        </div>
+        <div class="hero-wave-wrap">
+            <svg viewBox="0 0 1440 60" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M0,40 C360,0 1080,80 1440,20 L1440,60 L0,60 Z" fill="var(--bg)"></path>
+            </svg>
         </div>
     </section>
 
     <!-- Features Section -->
     <section class="features-section" id="features">
         <div class="section-container">
-            <h2 class="section-title">Key Features</h2>
+            <div style="text-align:center;">
+                <div class="section-label">✨ Features</div>
+                <h2 class="section-title-landing">Everything you need to manage waste smarter</h2>
+                <p class="section-subtitle">Simple tools for citizens, collectors, and administrators — all in one platform.</p>
+            </div>
             <div class="features-grid">
                 <div class="feature-card">
-                    <div class="feature-icon">📱</div>
+                    <div class="feature-icon-wrap"><span class="feature-icon">📱</span></div>
                     <h3>Easy Reporting</h3>
-                    <p>Citizens can report waste issues in just a few clicks with location details, photos, and priority levels.</p>
+                    <p>Report waste issues in seconds with photos, location, and priority level — right from your phone.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">👷</div>
+                    <div class="feature-icon-wrap"><span class="feature-icon">👷</span></div>
                     <h3>Collector Dashboard</h3>
-                    <p>Waste collectors get assigned jobs, track progress, and upload completion proof with photos.</p>
+                    <p>Waste collectors get assigned jobs, an optimized route map, and can mark completions with photo proof.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">📊</div>
+                    <div class="feature-icon-wrap"><span class="feature-icon">📊</span></div>
                     <h3>Admin Analytics</h3>
-                    <p>Administrators monitor completion rates, assignments, and geographic hotspots in real-time.</p>
+                    <p>Administrators see real-time charts, geographic heatmaps, and performance metrics at a glance.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">⚡</div>
+                    <div class="feature-icon-wrap"><span class="feature-icon">⚡</span></div>
                     <h3>Real-Time Updates</h3>
-                    <p>Get instant notifications when reports are assigned or completed in your area.</p>
+                    <p>Get instant notifications when your report is assigned, in progress, or completed.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">🔒</div>
-                    <h3>Secure & Private</h3>
-                    <p>Your data is protected with secure authentication and encrypted storage.</p>
+                    <div class="feature-icon-wrap"><span class="feature-icon">🗺️</span></div>
+                    <h3>Route Optimization</h3>
+                    <p>Smart routing helps collectors travel the most efficient path between all their assignments.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">🌍</div>
+                    <div class="feature-icon-wrap"><span class="feature-icon">🌍</span></div>
                     <h3>Environmental Impact</h3>
-                    <p>Contribute to building a cleaner environment and sustainable waste management practices.</p>
+                    <p>Track your contribution to cleaner communities and see the positive impact you're making.</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Process Section -->
+    <!-- How It Works / Process Section -->
     <section class="process-section" id="process">
         <div class="section-container">
-            <h2 class="section-title">How It Works</h2>
+            <div style="text-align:center;">
+                <div class="section-label">⚙️ Process</div>
+                <h2 class="section-title-landing">How GroundClean Works</h2>
+                <p class="section-subtitle">From spotting a problem to a clean street — in four simple steps.</p>
+            </div>
             <div class="process-grid">
                 <div class="process-step">
                     <div class="step-number">1</div>
-                    <h3>Report Waste</h3>
-                    <p>Citizens submit waste reports with photos, location, and priority level directly from the app.</p>
+                    <h3>📸 Report</h3>
+                    <p>Citizen spots a waste issue and submits a report with a photo, location, and priority level.</p>
                 </div>
                 <div class="process-step">
                     <div class="step-number">2</div>
-                    <h3>Assignment</h3>
-                    <p>Admins review reports and assign them to the most suitable waste collectors in that area.</p>
+                    <h3>📋 Assign</h3>
+                    <p>Admin reviews the report and assigns it to the best available waste collector in that area.</p>
                 </div>
                 <div class="process-step">
                     <div class="step-number">3</div>
-                    <h3>Collection</h3>
-                    <p>Collectors are notified, accept jobs, and head to the locations to clean and manage waste.</p>
+                    <h3>🚛 Collect</h3>
+                    <p>Collector is notified, accepts the job, follows the optimized route, and cleans the site.</p>
                 </div>
                 <div class="process-step">
                     <div class="step-number">4</div>
-                    <h3>Verification</h3>
-                    <p>Collectors upload completion proof with photos. Admins verify and mark reports as complete.</p>
+                    <h3>✅ Verify</h3>
+                    <p>Collector uploads proof photo. Admin verifies and marks the report as completed.</p>
                 </div>
             </div>
         </div>
@@ -522,73 +208,84 @@
     <!-- Benefits Section -->
     <section class="benefits-section" id="benefits">
         <div class="section-container">
-            <h2 class="section-title">Why Choose GroundClean?</h2>
+            <div style="text-align:center;">
+                <div class="section-label">💚 Benefits</div>
+                <h2 class="section-title-landing">Why Choose GroundClean?</h2>
+                <p class="section-subtitle">Built for communities, powered by people who care.</p>
+            </div>
             <div class="benefits-content">
                 <div>
                     <ul class="benefit-list">
                         <li class="benefit-item">
-                            <div class="benefit-icon">✅</div>
+                            <div class="benefit-icon-circle">⚡</div>
                             <div>
                                 <h4>Faster Response Times</h4>
-                                <p>Reports are addressed quickly with organized assignment and tracking systems.</p>
+                                <p>Organized assignment and tracking systems mean waste issues get resolved quickly.</p>
                             </div>
                         </li>
                         <li class="benefit-item">
-                            <div class="benefit-icon">✅</div>
+                            <div class="benefit-icon-circle">🔍</div>
                             <div>
                                 <h4>Transparent Tracking</h4>
-                                <p>Citizens can track their report status from submission to completion in real-time.</p>
+                                <p>Citizens follow their report from submission to completion in real-time.</p>
                             </div>
                         </li>
                         <li class="benefit-item">
-                            <div class="benefit-icon">✅</div>
+                            <div class="benefit-icon-circle">📈</div>
                             <div>
                                 <h4>Data-Driven Insights</h4>
-                                <p>Administrators get analytics to identify hotspots and improve waste management strategies.</p>
+                                <p>Admins get powerful analytics to identify hotspots and improve strategies.</p>
                             </div>
                         </li>
                         <li class="benefit-item">
-                            <div class="benefit-icon">✅</div>
+                            <div class="benefit-icon-circle">🤝</div>
                             <div>
                                 <h4>Community Engagement</h4>
-                                <p>Empower citizens to participate in environmental cleanup and sustainability efforts.</p>
+                                <p>Empowers citizens to actively participate in environmental cleanup efforts.</p>
                             </div>
                         </li>
                         <li class="benefit-item">
-                            <div class="benefit-icon">✅</div>
+                            <div class="benefit-icon-circle">📡</div>
                             <div>
                                 <h4>Scalable Solution</h4>
-                                <p>Works for small neighborhoods or entire cities with growing waste management needs.</p>
+                                <p>Works for small neighborhoods or entire cities as waste management needs grow.</p>
                             </div>
                         </li>
                     </ul>
                 </div>
-                <div class="benefits-image">
-                    🌱🌍♻️
+                <div class="benefits-visual">
+                    <span class="benefits-visual-emoji">🌱🌍♻️</span>
+                    <h3>Cleaner communities start here</h3>
+                    <p>Join hundreds of citizens and collectors already making a difference with GroundClean.</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Call to Action -->
+    <!-- CTA Section -->
     <section class="cta-section">
-        <h2>Ready to Join GroundClean?</h2>
-        <p>Be part of the solution. Help keep your community clean and sustainable.</p>
-        <div class="hero-buttons">
-            <a href="register.html" class="btn btn-primary-hero">Create Free Account</a>
-            <a href="index.html" class="btn btn-secondary-hero">Sign In</a>
+        <div class="section-container">
+            <div class="section-label" style="background:rgba(255,255,255,.15); color:#fff; border-color:rgba(255,255,255,.3);">🚀 Get Started</div>
+            <h2>Ready to Join GroundClean?</h2>
+            <p>Be part of the solution. Help keep your community clean and sustainable.</p>
+            <div class="cta-buttons">
+                <a href="register.html" class="btn-cta-white">🌿 Create Free Account</a>
+                <a href="index.html" class="btn-cta-outline">Sign In →</a>
+            </div>
         </div>
     </section>
 
     <!-- Footer -->
     <footer class="footer">
         <div class="footer-content">
-            <div class="footer-section">
-                <h4>🌱 GroundClean</h4>
-                <p>Smart waste management for cleaner communities in Cameroon and beyond.</p>
+            <div class="footer-brand footer-section">
+                <a href="Home.html" style="display:inline-flex; align-items:center; gap:.5rem; font-family:'Outfit',sans-serif; font-size:1.25rem; font-weight:800; color:var(--primary); text-decoration:none; margin-bottom:.625rem;">
+                    🌿 GroundClean
+                </a>
+                <p>Smart waste management for cleaner communities. Making environmental responsibility accessible to everyone.</p>
             </div>
             <div class="footer-section">
-                <h4>Quick Links</h4>
+                <h4>Platform</h4>
                 <ul>
                     <li><a href="#features">Features</a></li>
                     <li><a href="#process">How It Works</a></li>
@@ -596,11 +293,10 @@
                 </ul>
             </div>
             <div class="footer-section">
-                <h4>For Users</h4>
+                <h4>Account</h4>
                 <ul>
                     <li><a href="register.html">Sign Up</a></li>
                     <li><a href="index.html">Login</a></li>
-                    <li><a href="index.html">Report Waste</a></li>
                 </ul>
             </div>
             <div class="footer-section">
@@ -613,42 +309,40 @@
             </div>
         </div>
         <div class="footer-bottom">
-            <p>&copy; 2026 GroundClean. All rights reserved. | Dedicated to environmental sustainability.</p>
+            <p>© 2026 GroundClean. All rights reserved. | Dedicated to environmental sustainability.</p>
         </div>
     </footer>
 
     <script>
-        // Dark mode toggle
         function toggleTheme() {
             const html = document.documentElement;
             const currentTheme = html.getAttribute('data-theme');
             const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            
             html.setAttribute('data-theme', newTheme);
             localStorage.setItem('theme', newTheme);
-            
             const icon = document.getElementById('theme-icon');
             icon.textContent = newTheme === 'dark' ? '☀️' : '🌙';
         }
-
-        // Load saved theme on page load
         window.addEventListener('DOMContentLoaded', () => {
             const savedTheme = localStorage.getItem('theme') || 'light';
             document.documentElement.setAttribute('data-theme', savedTheme);
             const icon = document.getElementById('theme-icon');
             icon.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
         });
-
-        // Smooth scroll for anchor links
+        // Navbar scroll effect
+        window.addEventListener('scroll', () => {
+            const nav = document.getElementById('mainNav');
+            if (window.scrollY > 40) nav.classList.add('scrolled');
+            else nav.classList.remove('scrolled');
+        });
+        // Smooth scroll
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function(e) {
                 const href = this.getAttribute('href');
                 if (href !== '#') {
                     e.preventDefault();
                     const target = document.querySelector(href);
-                    if (target) {
-                        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }
+                    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
             });
         });

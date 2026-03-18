@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register - GroundClean</title>
+    <title>Create Account — GroundClean</title>
+    <meta name="description" content="Join GroundClean — report waste issues and help keep your community clean.">
     <link rel="stylesheet" href="css/style.css">
     <style>
         body {
@@ -11,72 +12,95 @@
             align-items: center;
             justify-content: center;
             min-height: 100vh;
-            background: linear-gradient(135deg, var(--primary-color) 0%, #0d3d1e 100%);
-            padding: 1rem;
+            padding: 1.5rem;
+            background: radial-gradient(ellipse at 60% 0%, rgba(22,163,74,.18) 0%, transparent 55%),
+                        radial-gradient(ellipse at 10% 100%, rgba(245,158,11,.12) 0%, transparent 50%),
+                        var(--bg);
         }
+        .auth-page-wrapper { width: 100%; max-width: 460px; }
+
         .auth-container {
-            background: var(--card-bg);
-            border-radius: 12px;
+            background: var(--bg-card);
+            border-radius: var(--radius-xl);
             box-shadow: var(--shadow-xl);
-            padding: 3rem;
-            width: 100%;
-            max-width: 420px;
-            animation: slideIn 0.3s ease-out;
+            padding: 2.75rem;
+            animation: slideUp .35s cubic-bezier(.34,1.56,.64,1);
+            border-top: 4px solid var(--primary);
+            position: relative;
+            overflow: hidden;
         }
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(-20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        .auth-container::before {
+            content: '';
+            position: absolute;
+            top: -60px; right: -60px;
+            width: 180px; height: 180px;
+            background: radial-gradient(circle, var(--primary-bg) 0%, transparent 70%);
+            pointer-events: none;
         }
-        .auth-header {
-            text-align: center;
-            margin-bottom: 2rem;
-        }
-        .auth-header h1 {
-            color: var(--primary-color);
-            margin: 0;
-            font-size: 1.875rem;
-        }
-        .auth-header p {
-            color: var(--text-secondary);
-            margin-top: 0.5rem;
-            font-size: 0.95rem;
-        }
-        .auth-footer {
-            text-align: center;
-            margin-top: 1.5rem;
-            color: var(--text-secondary);
-            font-size: 0.95rem;
-        }
-        .auth-footer a {
-            color: var(--primary-color);
-            font-weight: 600;
+        .auth-header { text-align: center; margin-bottom: 2rem; position: relative; }
+        .auth-logo {
+            display: inline-flex;
+            align-items: center;
+            gap: .625rem;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.75rem;
+            font-weight: 800;
+            color: var(--primary);
+            margin-bottom: .625rem;
             text-decoration: none;
         }
-        .auth-footer a:hover {
-            text-decoration: underline;
+        .auth-logo:hover { text-decoration: none; color: var(--primary-light); }
+        .auth-logo-icon {
+            width: 42px; height: 42px;
+            background: var(--primary-bg);
+            border: 2px solid var(--primary-border);
+            border-radius: var(--radius-md);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.375rem;
         }
-        .theme-toggle-auth {
-            position: fixed;
-            top: 1.5rem;
-            right: 1.5rem;
-            background: rgba(255, 255, 255, 0.2);
-            border: none;
-            color: white;
-            padding: 0.6rem 1.2rem;
-            border-radius: 6px;
+        .auth-header p { color: var(--text-muted); font-size: .9rem; margin: 0 0 .5rem; }
+        .auth-header h2 { font-size: 1.375rem; color: var(--text-h); margin: 0; }
+
+        .auth-footer { text-align: center; margin-top: 1.75rem; }
+        .auth-footer p { color: var(--text-muted); font-size: .875rem; margin-bottom: .375rem; }
+        .auth-footer a { color: var(--primary); font-weight: 600; }
+        .auth-footer a:hover { text-decoration: underline; }
+
+        .password-hint {
+            font-size: .78rem;
+            color: var(--text-subtle);
+            margin-top: .375rem;
+            line-height: 1.5;
+        }
+
+        .role-option {
+            display: flex; align-items: center; gap: .75rem;
+            padding: .875rem 1rem;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-md);
             cursor: pointer;
-            font-size: 1rem;
-            transition: background 0.3s ease;
+            transition: all var(--t);
+            margin-bottom: .625rem;
         }
-        .theme-toggle-auth:hover {
-            background: rgba(255, 255, 255, 0.3);
+        .role-option:hover { border-color: var(--primary); background: var(--primary-bg); }
+        .role-option input[type="radio"] { display: none; }
+        .role-option.selected { border-color: var(--primary); background: var(--primary-bg); }
+        .role-icon { font-size: 1.375rem; flex-shrink: 0; }
+        .role-text strong { display: block; font-weight: 600; color: var(--text-h); font-size: .9rem; }
+        .role-text span   { font-size: .8rem; color: var(--text-muted); }
+
+        .theme-toggle-auth {
+            position: fixed; top: 1.25rem; right: 1.25rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-body);
+            padding: .5rem 1rem;
+            border-radius: var(--radius-sm);
+            cursor: pointer; font-size: .9rem;
+            transition: all var(--t);
+            box-shadow: var(--shadow-sm);
         }
+        .theme-toggle-auth:hover { background: var(--bg-alt); }
     </style>
 </head>
 <body>
@@ -84,65 +108,87 @@
         <span id="theme-icon">🌙</span>
     </button>
 
-    <div class="auth-container">
-        <div class="auth-header">
-            <h1>🌱 GroundClean</h1>
-            <p>Create Your Account</p>
-        </div>
+    <div class="auth-page-wrapper">
+        <div class="auth-container">
+            <div class="auth-header">
+                <a href="Home.html" class="auth-logo">
+                    <div class="auth-logo-icon">🌿</div>
+                    GroundClean
+                </a>
+                <h2>Create your account</h2>
+                <p>Join thousands helping clean their communities</p>
+            </div>
 
-        <div id="authLoading" style="display: none; text-align: center; margin-bottom: 1.5rem;">
-            <div class="spinner" style="margin: 0 auto; margin-bottom: 0.75rem;"></div>
-            <p style="color: var(--text-secondary);">Creating your account...</p>
-        </div>
+            <div id="authLoading" style="display: none; text-align: center; margin-bottom: 1.5rem;">
+                <div class="spinner" style="margin: 0 auto 0.75rem;"></div>
+                <p style="color: var(--text-muted); font-size: .875rem;">Creating your account...</p>
+            </div>
 
-        <form onsubmit="event.preventDefault(); register();">
-            <div class="form-group">
-                <label class="form-label">Full Name *</label>
-                <input type="text" id="name" placeholder="John Doe" required tabindex="1">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Email Address *</label>
-                <input type="email" id="email" placeholder="your@email.com" required tabindex="2">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Password *</label>
-                <input type="password" id="password" placeholder="••••••••" required tabindex="3">
-                <small style="color: var(--text-tertiary);">Minimum 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char</small>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Account Type *</label>
-                <select id="role" required tabindex="4">
-                    <option value="">Select your role...</option>
-                    <option value="citizen">👤 Citizen - Report waste issues</option>
-                    <option value="collector">👷 Waste Collector - Collect and manage reports</option>
-                </select>
-            </div>
-            <button type="submit" id="registerBtn" class="btn btn-primary btn-block" tabindex="5">Create Account</button>
-        </form>
+            <form onsubmit="event.preventDefault(); register();">
+                <div class="form-group">
+                    <label class="form-label" for="name">Full Name *</label>
+                    <input type="text" id="name" placeholder="Jane Doe" required tabindex="1">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="email">Email Address *</label>
+                    <input type="email" id="email" placeholder="you@example.com" required tabindex="2">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="password">Password *</label>
+                    <input type="password" id="password" placeholder="••••••••" required tabindex="3">
+                    <p class="password-hint">Minimum 8 characters with uppercase, lowercase, number &amp; special character</p>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Account Type *</label>
+                    <!-- The select is hidden but still used by JS -->
+                    <select id="role" required tabindex="4" style="display:none;">
+                        <option value=""> </option>
+                        <option value="citizen">Citizen</option>
+                        <option value="collector">Collector</option>
+                    </select>
+                    <div class="role-option" onclick="selectRole('citizen', this)" id="roleCardCitizen">
+                        <span class="role-icon">👤</span>
+                        <div class="role-text">
+                            <strong>Citizen</strong>
+                            <span>Report waste issues in your area</span>
+                        </div>
+                    </div>
+                    <div class="role-option" onclick="selectRole('collector', this)" id="roleCardCollector">
+                        <span class="role-icon">👷</span>
+                        <div class="role-text">
+                            <strong>Waste Collector</strong>
+                            <span>Accept and resolve waste reports</span>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" id="registerBtn" class="btn btn-primary btn-block btn-lg" tabindex="5">Create Account</button>
+            </form>
 
-        <div class="auth-footer">
-            <p>Already have an account? <a href="index.html">Sign In</a></p>
-            <p><a href="Home.html">Back to Home</a></p>
+            <div class="auth-footer">
+                <p>Already have an account? <a href="index.html">Sign In</a></p>
+                <p><a href="Home.html">← Back to Home</a></p>
+            </div>
         </div>
     </div>
 
     <script src="js/api.js"></script>
     <script src="js/auth.js"></script>
     <script>
-        // Dark mode toggle
+        function selectRole(value, card) {
+            document.getElementById('role').value = value;
+            document.querySelectorAll('.role-option').forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+        }
+
         function toggleTheme() {
             const html = document.documentElement;
             const currentTheme = html.getAttribute('data-theme');
             const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            
             html.setAttribute('data-theme', newTheme);
             localStorage.setItem('theme', newTheme);
-            
             const icon = document.getElementById('theme-icon');
             icon.textContent = newTheme === 'dark' ? '☀️' : '🌙';
         }
-
-        // Load saved theme on page load
         window.addEventListener('DOMContentLoaded', () => {
             const savedTheme = localStorage.getItem('theme') || 'dark';
             document.documentElement.setAttribute('data-theme', savedTheme);

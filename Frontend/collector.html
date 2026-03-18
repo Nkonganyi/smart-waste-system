@@ -3,20 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Collector Dashboard - GroundClean</title>
+    <title>Collector Dashboard — GroundClean</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <style>
         #collectorMap {
-            height: 400px;
+            height: 420px;
             width: 100%;
-            border-radius: 12px;
-            margin-bottom: 2rem;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            border-radius: var(--radius-lg);
             z-index: 1;
         }
         .route-marker {
-            background-color: var(--primary-color);
+            background-color: var(--primary);
             border: 2px solid white;
             border-radius: 50%;
             color: white;
@@ -24,10 +22,16 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 24px;
-            height: 24px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            width: 28px; height: 28px;
+            box-shadow: 0 2px 8px rgba(0,0,0,.3);
+            font-size: .8rem;
         }
+        #routeHint {
+            margin-top: .75rem;
+            color: var(--text-muted);
+            font-size: .875rem;
+        }
+        .map-card .card-body { padding: 0; overflow: hidden; border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
     </style>
 </head>
 <body>
@@ -36,7 +40,7 @@
         <nav class="navbar">
             <div class="navbar-brand">GroundClean</div>
             <div class="navbar-menu">
-                <span class="navbar-item">👷 Waste Collector Dashboard</span>
+                <span class="navbar-item">👷 Collector Dashboard</span>
             </div>
             <button class="hamburger-toggle" id="sidebarToggle" onclick="toggleSidebar()">☰</button>
             <div class="navbar-actions">
@@ -50,9 +54,12 @@
 
         <!-- Sidebar -->
         <aside class="sidebar">
+            <div class="sidebar-header">
+                <h3>🌿 GroundClean</h3>
+            </div>
             <ul class="sidebar-menu">
                 <li class="sidebar-menu-item"><a href="#" class="sidebar-link active">📈 Dashboard</a></li>
-                <li class="sidebar-menu-item"><a href="#reports" class="sidebar-link">📋 My Reports</a></li>
+                <li class="sidebar-menu-item"><a href="#reports" class="sidebar-link">📋 My Assignments</a></li>
                 <li class="sidebar-menu-item"><a href="#notifications" class="sidebar-link">🔔 Notifications</a></li>
                 <li class="sidebar-menu-item"><a href="profile.html" class="sidebar-link">👤 My Profile</a></li>
             </ul>
@@ -73,21 +80,27 @@
 
                 <!-- Filter Section -->
                 <section class="dashboard-section">
-                    <div class="form-group">
-                        <label class="checkbox-wrapper">
-                            <input type="checkbox" id="showCompleted" onchange="loadAssignedReports()">
-                            <span>Show Completed Jobs</span>
-                        </label>
+                    <div class="card" style="margin-bottom: 0;">
+                        <div class="card-body" style="padding: 1rem 1.5rem;">
+                            <label class="checkbox-wrapper">
+                                <input type="checkbox" id="showCompleted" onchange="loadAssignedReports()">
+                                <span style="font-weight:600; color:var(--text-body);">Show Completed Jobs</span>
+                            </label>
+                        </div>
                     </div>
                 </section>
 
                 <!-- Map Section -->
                 <section class="dashboard-section">
                     <div class="section-header">
-                        <h2 class="section-title">🗺️ Optimization Route</h2>
+                        <h2 class="section-title">🗺️ Optimized Route</h2>
                     </div>
-                    <div id="collectorMap"></div>
-                    <div id="routeHint" style="margin-top:0.75rem; color:var(--text-secondary); font-size:0.9rem;"></div>
+                    <div class="card map-card">
+                        <div class="card-body">
+                            <div id="collectorMap"></div>
+                        </div>
+                    </div>
+                    <div id="routeHint"></div>
                 </section>
 
                 <!-- Assigned Reports Section -->
@@ -113,28 +126,21 @@
     <script src="js/api.js"></script>
     <script src="js/collector.js"></script>
     <script>
-        // Dark mode toggle
         function toggleTheme() {
             const html = document.documentElement;
             const currentTheme = html.getAttribute('data-theme');
             const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            
             html.setAttribute('data-theme', newTheme);
             localStorage.setItem('theme', newTheme);
-            
             const icon = document.getElementById('theme-icon');
             icon.textContent = newTheme === 'dark' ? '☀️' : '🌙';
         }
-
-        // Sidebar mobile toggle
         function toggleSidebar() {
             const sidebar = document.querySelector('.sidebar');
             const toggle = document.getElementById('sidebarToggle');
             sidebar.classList.toggle('active');
             toggle.classList.toggle('active');
         }
-
-        // Close sidebar when clicking on a link
         document.querySelectorAll('.sidebar-link').forEach(link => {
             link.addEventListener('click', function() {
                 if (window.innerWidth <= 768) {
@@ -143,8 +149,6 @@
                 }
             });
         });
-
-        // Load saved theme on page load
         window.addEventListener('DOMContentLoaded', () => {
             const savedTheme = localStorage.getItem('theme') || 'light';
             document.documentElement.setAttribute('data-theme', savedTheme);
